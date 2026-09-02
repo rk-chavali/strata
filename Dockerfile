@@ -6,7 +6,7 @@
 
 # ---------------------------------------------------------------- build
 
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 
 RUN corepack enable
 
@@ -65,7 +65,7 @@ RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 # ---------------------------------------------------------------- runtime
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 
 # git is not optional : it is how changes leave the container.
 # openssh-client provides the SSH transport for git remotes.
