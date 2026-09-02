@@ -1,0 +1,163 @@
+name: Release
+
+# Publishes the artefacts a self-hoster actually consumes: a container image and a Helm chart.
+#
+# **This is what makes the documentation true.** Until it existed, every self-hosting instruction
+# assumed you had cloned this repository: `docker compose up` needs the compose file from here,
+# `helm install ./deploy/helm/strata` needs the chart from here, and `ghcr.io/...` pointed at an
+# image nobody had ever pushed. That is contributor documentation, not self-hosting documentation.
+#
+# Tag a release and both artefacts appear at a public address a stranger can pull.
+on:
+  push:
+    # A tag is a release: it publishes the semver tags and moves `latest`.
+    tags: ["v*"]
+    # A push to main is not a release, but it should still be pullable.
+    #
+    # Without this there is no image of current main at all, so the only way to try unreleased
+    # work is to clone the repository and build it, which is the exact contributor-documentation
+    # trap this workflow exists to get out of. It publishes `edge` and a sha tag, and deliberately
+    # does not touch `latest`.
+    branches: ["main"]
+  # So an image can be produced on demand, without a tag worth cutting.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ${{ github.repository }}
+
+jobs:
+  image:
+    name: Publish the container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Emulation, so one runner can produce an arm64 image as well as amd64.
+      #
+      # Not optional. Apple Silicon laptops and the free ARM tiers at Oracle and AWS Graviton are
+      # arm64, and an amd64-only image fails on all of them with an error that reads as a broken
+      # download rather than a wrong architecture.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Sign in to the registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tags come from the git tag: v1.2.3 produces 1.2.3, 1.2 and 1, plus latest.
+      #
+      # The partial tags matter for operators. Pinning to `1` gets patches automatically and never
+      # a breaking change, which is the upgrade policy most people actually want and cannot express
+      # if the only tag is the exact version.
+      - name: Work out the tags
+        id: meta
+        uses: docker/metadata-action@b2391d37b4157fa4aa2e118d643f417910ff3242 # v3
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # Current main, for anyone who wants to try what is not released yet.
+            type=raw,value=edge,enable={{is_default_branch}}
+            type=sha,format=short
+          # `latest` follows the newest *release*, never the newest commit.
+          #
+          # This is the default `latest=auto`, stated rather than left implicit because the rule
+          # matters: metadata-action applies `latest` only when a semver pattern above produced a
+          # tag, so a push to main cannot move it. An operator who pinned `latest` gets released
+          # code, which is the only thing that pin can reasonably mean.
+          flavor: |
+            latest=auto
+
+      - name: Build and push
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Reported by /api/health/detail, so an operator can prove which build is live without
+          # trusting a tag that may have moved.
+          build-args: |
+            STRATA_COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  chart:
+    name: Publish the Helm chart
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: image
+
+    # Tags and manual runs only.
+    #
+    # A chart has one version field and no equivalent of `edge`, so publishing on every push to
+    # main would mean overwriting 0.0.0-dev continuously: a version number that silently means
+    # something different each time, which is worse than not publishing at all.
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3
+
+      - name: Sign in to the registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | helm registry login ${{ env.REGISTRY }} \
+                --username ${{ github.actor }} --password-stdin
+
+      # Worked out once and shared, because the summary below has to name what was actually
+      # published. Recomputing it there got this wrong on a manual run: with no tag,
+      # GITHUB_REF_NAME is the branch, so the summary told the reader to pull `:main` while
+      # the chart had gone out as 0.0.0-dev and the image as `latest`.
+      - name: Work out the version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          IMAGE_TAG="$VERSION"
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            VERSION="0.0.0-dev"
+            # `edge`, not `latest`. Only a tag moves `latest`, so telling a reader to pull it
+            # here would point them at the last release rather than at what just built.
+            IMAGE_TAG="edge"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+
+      # Published as an OCI artefact to the same registry as the image, rather than as a chart
+      # repository on GitHub Pages. One registry, one set of credentials, one thing to keep alive,
+      # and `helm install` speaks OCI natively now.
+      - name: Package and push
+        run: |
+          helm package deploy/helm/strata \
+            --version "$VERSION" \
+            --app-version "$VERSION"
+
+          helm push "strata-${VERSION}.tgz" \
+            "oci://${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/charts"
+
+      - name: Say how to install it
+        run: |
+          echo "### Strata ${VERSION} published" >> "$GITHUB_STEP_SUMMARY"
+          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+          echo "docker pull ${REGISTRY}/${IMAGE}:${IMAGE_TAG}" >> "$GITHUB_STEP_SUMMARY"
+          echo "helm install strata oci://${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/charts/strata --version ${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

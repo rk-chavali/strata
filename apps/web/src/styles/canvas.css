@@ -1,0 +1,792 @@
+/* ---------------------------------------------------------------- canvas */
+
+/*
+ * Fills the page scaffold's flush body.
+ *
+ * `height: 100%` is load-bearing and easy to lose. React Flow measures its container to
+ * decide the viewport, and this sits inside `.page__body--flush`, which is a flex child
+ * (`flex: 1; min-height: 0`). A flex child's height resolves from the parent, but this
+ * element's *own* height stays `auto`, which for an absolutely-positioned child like the
+ * canvas means zero. The nodes then render into a 0px-tall box: present in the DOM,
+ * invisible on screen, and impossible to spot from the markup alone.
+ *
+ * This is exactly what happened when the old `grid-column: 3` placement, which sized it
+ * against the deleted rail/panel/canvas grid, was removed.
+ */
+/*
+ * Column, so the docked shape toolbar can take a row and the canvas takes the rest.
+ *
+ * `position: relative` stays: the selection-attached toolbars position against this
+ * element, and they are the only things left that float over the diagram.
+ */
+.canvas-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/*
+ * Takes every row the toolbar does not.
+ *
+ * `height: auto` cancels the `height: 100%` on `.canvas` below. That rule exists because
+ * React Flow measures its container and an `auto` height inside an absolutely-positioned
+ * ancestor collapses to zero, but as a flex child in this column, `100%` resolves
+ * against the *whole* wrapper and ignores the toolbar's row, pushing the bottom of the
+ * canvas off by exactly the toolbar's height. `flex: 1` supplies the height instead,
+ * which is measurable for the same reason and correct for this layout.
+ */
+.canvas-wrap .canvas {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 1px 1px, var(--canvas-grid) 1px, transparent 0) 0 0 / 20px 20px,
+    var(--n1);
+}
+
+/*
+ * The empty-model hint, floating over a live canvas.
+ *
+ * `pointer-events: none` is the whole point: it sits above React Flow, so without it the
+ * hint would swallow the drop you are trying to make in the middle of the canvas, * which is exactly where anyone drops their first shape.
+ */
+.canvas__hint {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-canvas-hint);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+/*
+ * A sketched table, drawn to read like one without being one.
+ *
+ * The label wrapper pads every other shape so its text does not touch the border. A
+ * table's header has to run edge to edge or it reads as a box inside a box, so this
+ * cancels that padding and takes over the whole shape.
+ */
+.shape__label:has(.tablesketch) { padding: 0; }
+
+.tablesketch {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  text-align: left;
+  font-style: normal;
+}
+
+.tablesketch__head {
+  flex: none;
+  padding: var(--s3) var(--s5);
+  font-weight: 600;
+  text-align: center;
+  background: var(--n2);
+  border-bottom: 1px solid var(--border);
+}
+
+.tablesketch__row {
+  flex: none;
+  padding: 3px var(--s5);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--n3);
+}
+
+/* Ruled lines filling the space below the rows, so an empty sketch still reads as a
+   table rather than as a rectangle with a caption. */
+.tablesketch__fill {
+  flex: 1;
+  min-height: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 21px,
+    var(--n3) 21px,
+    var(--n3) 22px
+  );
+}
+
+/* Scrollable list of what an import found, capped so the dialog stays usable at 400
+   objects, which is a normal size for a real erwin model. */
+.importlist {
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: var(--fs-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+.importlist__row {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  padding: var(--s2) var(--s4);
+}
+
+.importlist__row + .importlist__row { border-top: 1px solid var(--n2); }
+.importlist__row .picker__meta { margin-left: auto; }
+.importlist__row--error { color: var(--err); background: var(--err-soft); }
+.importlist__row--warning { color: var(--warn); }
+
+/* ---------------------------------------------------------------- node */
+
+.node {
+  width: 232px;
+  overflow: hidden;
+  background: var(--n0);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-1);
+}
+
+.node--sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); }
+
+/*
+ * IDEF1X: an identifier-dependent entity has rounded corners.
+ *
+ * Not a style choice. In IDEF1X corner shape *is* information, square means the entity can
+ * be identified on its own, rounded means its primary key contains a key migrated from a
+ * parent, so it cannot. A reader scans corners to find the dependent entities before
+ * reading a single attribute name.
+ *
+ * Generous radius because the distinction has to survive being zoomed out; at `--r` it is
+ * indistinguishable from the square boxes at 50%.
+ */
+.node--dependent { border-radius: 14px; }
+
+/* The header's own corners have to follow, or its fill squares off the rounded box. */
+.node--dependent .node__rule { border-radius: 14px 14px 0 0; }
+
+/*
+ * `(FK)` after a migrated attribute's name, in IDEF1X.
+ *
+ * Deliberately quiet: it appears on every migrated attribute, so at full contrast it would
+ * compete with the names it annotates on a diagram where most keys are migrated.
+ */
+.member__rolemark {
+  margin-left: var(--s2);
+  color: var(--text-4);
+  font-size: 9px;
+  font-weight: 500;
+}
+.node__rule { height: 3px; }
+.node--entity .node__rule { background: var(--tier-logical); }
+.node--table .node__rule { background: var(--tier-physical); }
+.node--concept .node__rule { background: var(--tier-conceptual); }
+
+.node__head {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  padding: var(--s4) var(--s5);
+  border-bottom: 1px solid var(--n3);
+}
+
+.node__name { flex: 1; overflow: hidden; font-size: var(--fs-sm); font-weight: 600; letter-spacing: -0.01em; text-overflow: ellipsis; white-space: nowrap; }
+.node__nameinput {
+  flex: 1;
+  min-width: 0;
+  padding: 1px var(--s2);
+  color: var(--n9);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  background: var(--n0);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+}
+
+.node__tag { flex: none; padding: 1px var(--s3); color: var(--n7); font-size: 10px; background: var(--n3); border-radius: 999px; }
+
+.node__keys { background: var(--n1); border-bottom: 1px solid var(--n3); }
+.node__rows { padding: var(--s2) 0; }
+
+/* `relative` so the row's own connection points position against it, not the box. */
+.member { position: relative; display: flex; gap: var(--s4); align-items: center; min-height: 21px; padding: 2px var(--s5); font-size: var(--fs-xs); }
+.member:hover { background: var(--n2); }
+.member--editing { background: var(--accent-soft); }
+.member__key { width: 12px; flex: none; color: var(--accent); }
+.member__name { flex: 1; overflow: hidden; color: var(--n8); text-overflow: ellipsis; white-space: nowrap; }
+.member__name--req { color: var(--n9); font-weight: 500; }
+.member__type { flex: none; color: var(--n6); font-family: var(--mono); font-size: 10px; white-space: nowrap; }
+.member__tag { flex: none; padding: 0 var(--s3); color: var(--warn); font-size: 9px; background: var(--warn-soft); border-radius: 999px; }
+.member__input {
+  min-width: 0;
+  padding: 1px var(--s2);
+  color: var(--n9);
+  font-size: var(--fs-xs);
+  background: var(--n0);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+}
+
+.member__input--name { flex: 1; }
+.member__input--type { flex: none; width: 92px; font-family: var(--mono); font-size: 10px; }
+.member__more { padding: var(--s2) var(--s5) var(--s2) 28px; color: var(--n6); font-size: 10px; }
+
+/* ---------------------------------------------------------------- row ports */
+
+/*
+ * Per-column connection points.
+ *
+ * The two ends are deliberately asymmetrical. The right-hand port is a grab handle, drawn
+ * in the empty space past the column name, revealed when the pointer is on the row. The
+ * left-hand port is an arrival point only, it is never drawn, because a line lands there
+ * but nobody starts a drag from it, and a visible knob you are not meant to grab is an
+ * invitation to try.
+ *
+ * Compound selectors to outrank React Flow's own stylesheet, which is injected after ours.
+ */
+.react-flow__handle.member__port {
+  width: 8px;
+  height: 8px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--accent);
+  border: 2px solid var(--bg-surface);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+/* Never visible: it is where lines land, not where drags begin. */
+.react-flow__handle.member__port--in {
+  width: 1px;
+  height: 1px;
+  background: none;
+  border: 0;
+  opacity: 0 !important;
+}
+
+/* Generous grab area, the same trick the resize handles use. */
+.react-flow__handle.member__port--out::after {
+  position: absolute;
+  inset: -8px;
+  content: "";
+}
+
+/* Revealed by hovering the row, which is a far larger target than the port itself. */
+.member:hover .react-flow__handle.member__port--out,
+.react-flow__handle.member__port--out:hover {
+  opacity: 1;
+}
+
+/*
+ * While a connection is in flight every row port shows, so the drop targets are obvious.
+ * Without this you would be dragging toward a row with no indication it can receive.
+ */
+.react-flow.connecting .react-flow__handle.member__port--out {
+  opacity: 0.55;
+}
+
+/* ---------------------------------------------------------------- focus dimming */
+
+/*
+ * Selecting something dims everything unrelated to it.
+ *
+ * This, not the anchoring, is what keeps a crowded diagram readable. A fact table with six
+ * foreign keys has six lines converging on it however precisely each one is anchored, and
+ * no amount of routing makes six crossing lines legible at once. Dropping the unrelated
+ * ones to a fifth of their opacity turns "which of these six do I care about" into a
+ * question the diagram answers rather than one the reader has to solve.
+ *
+ * Opacity rather than hiding: a dimmed line still shows that something else exists, which
+ * is the difference between focus and censorship.
+ */
+.canvas--focused .react-flow__edge:not(.edge--related) {
+  opacity: 0.12;
+}
+
+.canvas--focused .react-flow__node:not(.node--related) {
+  opacity: 0.35;
+}
+
+/* The focused elements keep full contrast and sit above the dimmed ones. */
+.canvas--focused .react-flow__edge.edge--related .react-flow__edge-path {
+  stroke-width: 2.5;
+}
+
+.node__add {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  width: 100%;
+  padding: var(--s3) var(--s5);
+  color: var(--accent);
+  font-size: 10px;
+  border-top: 1px solid var(--n3);
+}
+
+.node__add:hover { background: var(--accent-soft); }
+
+/* ---------------------------------------------------------------- selection toolbar */
+
+/* Actions come to the object rather than sending the user to a panel. */
+.seltool {
+  position: absolute;
+  z-index: var(--z-canvas-selection);
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+  padding: var(--s2);
+  background: var(--n9);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-3);
+  transform: translate(-50%, -100%);
+}
+
+[data-theme="dark"] .seltool { background: var(--n3); border: 1px solid var(--n5); }
+
+.seltool button { display: flex; gap: var(--s3); align-items: center; padding: var(--s3) var(--s4); color: #cbd3dd; font-size: var(--fs-xs); border-radius: var(--r-sm); }
+[data-theme="dark"] .seltool button { color: var(--n8); }
+.seltool button:hover { color: #fff; background: rgb(255 255 255 / 12%); }
+[data-theme="dark"] .seltool button:hover { color: var(--n9); background: var(--n4); }
+.seltool button:disabled { opacity: 0.4; cursor: default; }
+.seltool button:disabled:hover { background: none; }
+.seltool .sep { width: 1px; height: 16px; margin: 0 var(--s2); background: rgb(255 255 255 / 20%); }
+[data-theme="dark"] .seltool .sep { background: var(--n5); }
+
+.seltool::after {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  margin-left: -4px;
+  background: var(--n9);
+  content: "";
+  transform: rotate(45deg);
+}
+
+[data-theme="dark"] .seltool::after { background: var(--n3); }
+
+/* ---------------------------------------------------------------- shapes */
+
+.shape { position: relative; display: flex; box-sizing: border-box; }
+.shape--sel { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+/* Stretches to the wrapper, so the geometry follows a resize in the same frame. */
+.shape__bg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.shape__handle { opacity: 0; }
+.shape:hover .shape__handle { opacity: 1; }
+
+/* Above `.shape__bg`, its own sibling, an intra-component order, not an app layer. */
+.shape__label {
+  position: relative;
+  z-index: var(--z-local);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: var(--s4) var(--s5);
+  overflow: hidden;
+}
+
+.shape__text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.shape__placeholder { color: var(--n6); font-style: italic; }
+
+.shape__input {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  background: none;
+  border: none;
+  outline: none;
+  resize: none;
+}
+
+.shape--text .shape__label { padding: var(--s2); }
+.shape--note .shape__label { padding: var(--s4) var(--s5); }
+
+/* ---------------------------------------------------------------- resizing */
+
+/*
+ * Resize handles.
+ *
+ * React Flow's default is 4px, which is essentially impossible to hit, especially
+ * zoomed out. These are 12px visually with an 22px invisible hit area via a
+ * pseudo-element, so the target is generous without the handles looking clumsy.
+ *
+ * All eight are enabled: four corners and four edges, so a shape can be stretched from
+ * any direction rather than only the bottom-right.
+ */
+/*
+ * Compound selectors throughout: React Flow ships its own `.react-flow__resize-control`
+ * rules and its stylesheet is injected after this one, so a single class loses on
+ * source order. Matching both classes raises specificity and wins outright.
+ */
+.react-flow__resize-control.line.resize__line {
+  border-color: var(--accent);
+  border-width: 1.5px;
+}
+
+.react-flow__resize-control.handle.resize__handle {
+  width: 12px;
+  height: 12px;
+  background: var(--n0);
+  border: 2px solid var(--accent);
+  border-radius: 3px;
+  box-shadow: var(--shadow-1);
+}
+
+/* Extends the grab area well past the visible square, so it is easy to catch. */
+.react-flow__resize-control.handle.resize__handle::after {
+  position: absolute;
+  inset: -7px;
+  content: "";
+}
+
+.react-flow__resize-control.handle.resize__handle:hover {
+  background: var(--accent);
+}
+
+/* The edge lines are grab targets too; widen their hit area the same way. */
+.react-flow__resize-control.line.resize__line::after {
+  position: absolute;
+  inset: -6px;
+  content: "";
+}
+
+/* ---------------------------------------------------------------- edges */
+
+.edgelabel {
+  position: absolute;
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  padding: 1px var(--s3);
+  color: var(--n7);
+  font-size: var(--fs-xs);
+  background: var(--n1);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  pointer-events: all;
+}
+
+/*
+ * Cardinality at a line end: UML multiplicity, or an IDEF1X code.
+ *
+ * A background chip, because these sit close to the box border and the notation glyph, and
+ * unbacked text over either becomes unreadable. `pointer-events: none` so a 12px label
+ * never intercepts a click meant for the line beneath it.
+ */
+.edgeend {
+  position: absolute;
+  padding: 0 3px;
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.5;
+  background: var(--bg-canvas);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.edgelabel--sel { color: var(--n9); border-color: var(--accent); }
+.edgelabel__card { color: var(--n6); font-family: var(--mono); font-size: 10px; }
+
+.edgelabel__input {
+  position: absolute;
+  width: 128px;
+  padding: 1px var(--s3);
+  color: var(--n9);
+  font-size: var(--fs-xs);
+  background: var(--n0);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  outline: none;
+  pointer-events: all;
+}
+
+/* The toolbar rides the line, so actions appear where the user is already looking. */
+.edgetool {
+  position: absolute;
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+  padding: var(--s2);
+  background: var(--n0);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-2);
+  pointer-events: all;
+}
+
+.edgetool button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--n7);
+  border-radius: var(--r-sm);
+}
+
+.edgetool button:hover { color: var(--n9); background: var(--n2); }
+.edgetool__danger:hover { color: var(--err) !important; background: var(--err-soft) !important; }
+.edgetool__sep { width: 1px; height: 16px; margin: 0 var(--s1); background: var(--border); }
+
+/* React Flow marks the hit area with this class; widening it is what makes a thin
+   line clickable at any zoom level. */
+.react-flow__edge-interaction { stroke-width: 24; }
+.react-flow__edge.selected .react-flow__edge-path { stroke: var(--accent); }
+.react-flow__edge:hover .react-flow__edge-path { stroke-width: 2.5; cursor: pointer; }
+
+/* --------------- shape palette */
+
+/*
+ * A docked toolbar, not a floating strip.
+ *
+ * This was `position: absolute; top/left: var(--s6); z-index: 20`, a 39×434px vertical
+ * column sitting on top of the diagram's left edge. It covered whatever was underneath
+ * it, it had no relationship to the canvas bounds, and it grew taller every time a shape
+ * was added to the palette, so the amount of diagram it hid was a function of the
+ * palette's length.
+ *
+ * Docking it costs one row and takes nothing away: the tools are still one click from
+ * the canvas, and every pixel below the bar is now unambiguously the diagram. Horizontal
+ * because that is the axis with room to spare, the shell already spends its vertical
+ * budget on the top bar and the status bar.
+ *
+ * No z-index. It is in the normal flow, so there is nothing for it to fight with.
+ */
+.shapebar {
+  display: flex;
+  flex: none;
+  gap: var(--s1);
+  align-items: center;
+  padding: var(--s2) var(--s4);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.shapebar__btn { display: grid; place-items: center; width: 30px; height: 30px; color: var(--n7); border-radius: var(--r-sm); }
+.shapebar__btn:hover:not(:disabled) { color: var(--n9); background: var(--n2); }
+.shapebar__btn--on { color: var(--accent); background: var(--accent-soft); }
+.shapebar__btn:disabled { cursor: default; opacity: 0.3; }
+/* Vertical now that the bar runs horizontally. */
+.shapebar__sep { width: 1px; height: 18px; margin: 0 var(--s3); background: var(--border); }
+
+/* A primed shape tool: clicking the canvas places one. */
+.canvas--placing { cursor: crosshair; }
+
+/* ---------------------------------------------------------------- format toolbar */
+
+.fmtbar {
+  position: absolute;
+  z-index: var(--z-canvas-selection);
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+  padding: var(--s2);
+  background: var(--n0);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-3);
+  transform: translate(-50%, -100%);
+}
+
+.fmtbar__btn {
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 var(--s2);
+  color: var(--n7);
+  border-radius: var(--r-sm);
+}
+
+.fmtbar__btn:hover { color: var(--n9); background: var(--n2); }
+.fmtbar__btn--on { color: var(--accent); background: var(--accent-soft); }
+.fmtbar__sep { width: 1px; height: 18px; margin: 0 var(--s2); background: var(--border); }
+.fmtbar__num { min-width: 16px; font-size: var(--fs-xs); text-align: center; }
+.fmtbar__chip { width: 14px; height: 14px; border: 1px solid var(--n5); border-radius: 3px; }
+.fmtbar__pop { position: relative; }
+
+.fmtbar__panel {
+  position: absolute;
+  top: calc(100% + var(--s3));
+  left: 0;
+  z-index: var(--z-canvas-popover);
+  padding: var(--s4);
+  background: var(--n0);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-3);
+}
+
+.fmtbar__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s1); }
+.fmtbar__swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s2); }
+
+.fmtbar__swatch {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--n5);
+  border-radius: var(--r-sm);
+}
+
+.fmtbar__swatch:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fmtbar__swatch--none {
+  background:
+    linear-gradient(45deg, transparent 45%, var(--err) 45%, var(--err) 55%, transparent 55%),
+    var(--n0);
+}
+
+.fmtbar__opt {
+  padding: var(--s2) var(--s3);
+  color: var(--n8);
+  font-size: var(--fs-xs);
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+}
+
+.fmtbar__opt:hover { background: var(--n2); }
+.fmtbar__opt--on { color: var(--accent); background: var(--accent-soft); }
+.fmtbar__row { display: flex; gap: var(--s2); align-items: center; margin-top: var(--s4); padding-top: var(--s4); border-top: 1px solid var(--n3); }
+.fmtbar__caption { color: var(--n6); font-size: var(--fs-xs); }
+
+/* A free number field: the presets are shortcuts, not a limit. */
+.fmtbar__sizefield { display: flex; gap: var(--s3); align-items: center; margin-bottom: var(--s4); }
+.fmtbar__sizefield .input { width: 72px; padding: var(--s2) var(--s3); font-size: var(--fs-sm); }
+
+/* ---------------------------------------------------------------- relate dialog */
+
+/*
+ * The column mapping: one row per part of the key.
+ *
+ * A grid rather than a flex row, so the arrows line up down the column on a composite key.
+ * With flex, each row sizes its own left side to its own content and the arrows stagger,
+ * which makes a two-part key read as two unrelated controls rather than one mapping.
+ */
+.pairs {
+  display: grid;
+  gap: var(--s3);
+}
+
+.pairs__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto auto;
+  gap: var(--s3);
+  align-items: center;
+}
+
+.pairs__side {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  min-width: 0;
+  padding: var(--s3) var(--s4);
+  font-size: var(--fs-sm);
+  background: var(--bg-inset);
+  border-radius: var(--r-sm);
+}
+
+/* The child side holds a control, which brings its own background and padding. */
+.pairs__side--pick {
+  padding: 0;
+  background: none;
+}
+
+.pairs__side--pick > * {
+  width: 100%;
+}
+
+.pairs__type {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-4);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.pairs__arrow { flex: none; color: var(--text-4); }
+
+/* Holds the column open when there is no clear button, so rows stay aligned. */
+.pairs__spacer { width: 24px; }
+
+.pairs__warn { display: grid; place-items: center; color: var(--warn-text); }
+
+.relate { display: flex; gap: var(--s4); align-items: center; justify-content: center; }
+.relate__box {
+  flex: 1;
+  padding: var(--s4) var(--s5);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
+  background: var(--n2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+/*
+ * Save state lives in the status bar, not over the diagram.
+ *
+ * This was `position: absolute; bottom: 58px`, a hand-tuned offset whose only job was
+ * to dodge the zoom control that used to float below it. Two viewport-anchored surfaces
+ * negotiating their positions in hardcoded pixels is precisely the failure the grid
+ * shell was introduced to remove, and it broke the moment either one changed height.
+ * Both now have a real home in `.statusbar`, so there is nothing left to dodge.
+ */
+
+/* ---------------------------------------------------------------- annotations */
+
+.annotation {
+  position: relative;
+  padding: var(--s4) var(--s5);
+  color: var(--note-text);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  background: var(--note-bg);
+  border: 1px solid var(--note-border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-1);
+}
+
+.annotation--label { color: var(--n7); background: transparent; border-color: transparent; box-shadow: none; }
+.annotation--editing { border-color: var(--accent); }
+.annotation__input { width: 100%; min-height: 60px; padding: 0; color: inherit; font: inherit; background: none; border: none; outline: none; resize: none; }
+.annotation__del { position: absolute; top: 2px; right: 3px; display: grid; place-items: center; width: 18px; height: 18px; color: var(--n6); border-radius: 3px; opacity: 0; }
+.annotation:hover .annotation__del { opacity: 1; }
+.annotation__del:hover { color: var(--err); background: rgb(0 0 0 / 6%); }
+
+/* ---------------------------------------------------------------- context menu */
+
+.ctx {
+  position: fixed;
+  z-index: var(--z-contextmenu);
+  min-width: 208px;
+  padding: var(--s2);
+  background: var(--n0);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-3);
+}
+
+.ctx__item { display: flex; gap: var(--s4); align-items: center; width: 100%; padding: var(--s3) var(--s4); font-size: var(--fs-sm); text-align: left; border-radius: var(--r-sm); }
+.ctx__item:hover:not(:disabled) { background: var(--n2); }
+.ctx__item:disabled { color: var(--n5); cursor: default; }
+.ctx__item--danger:hover:not(:disabled) { color: var(--err); background: var(--err-soft); }
+.ctx__hint { margin-left: auto; color: var(--n6); font-size: 10px; }
+.ctx__sep { height: 1px; margin: var(--s2) 0; background: var(--n3); }
+.ctx__label { padding: var(--s3) var(--s4) var(--s2); color: var(--n6); font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+

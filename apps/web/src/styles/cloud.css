@@ -1,0 +1,292 @@
+/*
+  The hosted sign-in.
+
+  Deliberately not the plain centred card the self-hosted screen uses, and the difference is not
+  decoration. A self-hoster has already read the documentation, run a container and mounted a
+  repository: they are sold, and a form is the correct amount of ceremony. Somebody arriving at the
+  hosted product has done none of that. This screen is the product's first and possibly only
+  impression, so it has to answer "what is this" before it asks "who are you".
+
+  It borrows its composition from the marketing site rather than from the application: a wide
+  stage carrying the claim and the proof, a narrow panel carrying the action. Tokens are the
+  application's, so both themes work with no second palette to maintain.
+*/
+
+.cloud {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(400px, 0.8fr);
+  min-height: 100%;
+  background: var(--n0);
+
+  /*
+    The grid needs different weight in each theme, not the same value twice.
+
+    On a dark ground a faint line reads clearly because it is lighter than everything around it.
+    On a light ground the same line disappears, so light mode needs roughly twice the opacity to
+    land at the same perceived strength. One variable, set once per theme, rather than the whole
+    rule duplicated under a theme selector.
+  */
+  --cloud-grid: 0.34;
+}
+
+[data-theme="dark"] .cloud { --cloud-grid: 0.16; }
+
+/* ---------------------------------------------------------------- stage */
+
+.cloud__stage {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--s7);
+  padding: var(--s9) clamp(28px, 5vw, 72px);
+  background: linear-gradient(160deg, var(--accent-soft) 0%, var(--n1) 62%, var(--n2) 100%);
+  border-right: 1px solid var(--border);
+}
+
+/*
+  A faint grid behind the stage, the same one the diagram canvas uses.
+
+  It is the product's own visual signature rather than an ornament borrowed from a template, and
+  it reads as "this is a drawing surface" before a single word is read.
+*/
+.cloud__stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--accent-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--accent-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: var(--cloud-grid);
+  mask-image: radial-gradient(ellipse 90% 70% at 30% 45%, #000 20%, transparent 78%);
+  pointer-events: none;
+}
+
+.cloud__stage > * { position: relative; }
+
+.cloud__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s4);
+  align-self: flex-start;
+  padding: 5px 11px 5px 8px;
+  background: var(--n0);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  color: var(--accent-text);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cloud__headline {
+  margin: 0;
+  max-width: 15ch;
+  font-size: clamp(34px, 4.4vw, 56px);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  color: var(--n9);
+  text-wrap: balance;
+}
+.cloud__headline em { font-style: normal; color: var(--accent-text); }
+
+.cloud__lede {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--n7);
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------- figure */
+
+.cloud__figure { width: 100%; max-width: 520px; height: auto; display: block; }
+
+.cf-card { fill: var(--n0); stroke: var(--border); stroke-width: 1; }
+.cf-head { fill: var(--accent-soft); }
+.cf-title { font-family: var(--mono); font-size: 8px; fill: var(--accent-text); font-weight: 600; }
+.cf-row { font-family: var(--mono); font-size: 6.6px; fill: var(--n7); }
+.cf-key { fill: var(--accent-text); font-weight: 600; }
+.cf-rule { stroke: var(--border); stroke-width: 0.6; }
+.cf-code { font-family: var(--mono); font-size: 6.2px; fill: var(--n7); }
+.cf-code-key { fill: var(--accent-text); }
+.cf-label {
+  font-family: var(--mono);
+  font-size: 6px;
+  fill: var(--n6);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/*
+  The link between the two halves, drawn moving.
+
+  It carries the one idea the product rests on: the diagram and the file are not two artefacts
+  that need reconciling, they are one thing seen twice. A static dashed line states that. A moving
+  one shows a direction, which is the part people miss.
+*/
+.cf-link {
+  stroke: var(--accent);
+  stroke-width: 1.3;
+  fill: none;
+  stroke-dasharray: 4 3;
+  animation: cloud-flow 1.4s linear infinite;
+}
+
+@keyframes cloud-flow {
+  to { stroke-dashoffset: -14; }
+}
+
+/* ---------------------------------------------------------------- proof */
+
+.cloud__proof { display: flex; flex-direction: column; gap: var(--s5); margin: 0; padding: 0; list-style: none; }
+
+.cloud__proof li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: start;
+  color: var(--n7);
+  font-size: var(--fs-md);
+  line-height: 1.55;
+}
+.cloud__proof strong { color: var(--n9); font-weight: 600; }
+.cloud__proof svg { margin-top: 2px; color: var(--accent); }
+
+/* ---------------------------------------------------------------- panel */
+
+.cloud__panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--s6);
+  padding: var(--s9) clamp(28px, 4vw, 56px);
+  background: var(--n0);
+}
+
+.cloud__panel-inner { width: 100%; max-width: 380px; margin: 0 auto; }
+
+.cloud__brand {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  margin: 0 0 var(--s5);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--n9);
+}
+
+.cloud__panel h1 {
+  margin: 0 0 var(--s4);
+  font-size: var(--fs-2xl);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--n9);
+}
+
+.cloud__sub { margin: 0 0 var(--s7); color: var(--n7); font-size: var(--fs-md); line-height: 1.55; }
+
+.cloud__note {
+  margin: var(--s7) 0 0;
+  padding: var(--s6) 0 0;
+  border-top: 1px solid var(--border);
+  color: var(--n7);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+.cloud__note p { margin: 0 0 var(--s5); }
+.cloud__note p:last-child { margin-bottom: 0; }
+
+/* ---------------------------------------------------------------- repositories */
+
+.cloud__repos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Bounded so the sign-out link below stays reachable for somebody with 200 repositories. */
+  max-height: min(46vh, 380px);
+  overflow-y: auto;
+  margin: var(--s5) calc(var(--s5) * -1) 0;
+  padding: 0 var(--s5);
+}
+
+.cloud__repo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  width: 100%;
+  padding: var(--s4) var(--s5);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  color: var(--n9);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cloud__repo:hover:not(:disabled) { background: var(--n2); border-color: var(--border); }
+.cloud__repo:focus-visible { outline: none; box-shadow: var(--ring); }
+.cloud__repo:disabled { opacity: 0.45; cursor: default; }
+
+.cloud__repo-name {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  min-width: 0;
+}
+.cloud__repo-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cloud__repo-name svg { flex: none; color: var(--n6); }
+
+/* The role, so read-only access is visible before the repository is opened rather than after. */
+.cloud__repo-role {
+  flex: none;
+  padding: 1px 7px;
+  background: var(--n2);
+  border-radius: 999px;
+  color: var(--n7);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+}
+
+/* A link that is really a button, because signing out is an action rather than a destination. */
+.cloud__signout {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--accent-text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.cloud__signout:hover { color: var(--n9); }
+
+/* ---------------------------------------------------------------- responsive */
+
+/*
+  Below 900px the stage stops being a column and becomes a header.
+
+  The figure is dropped rather than scaled: at phone width it would be an unreadable smudge that
+  still costs its full vertical space, pushing the actual sign-in button below the fold.
+*/
+@media (max-width: 900px) {
+  .cloud { grid-template-columns: minmax(0, 1fr); }
+  .cloud__stage {
+    gap: var(--s6);
+    padding: var(--s8) var(--s7);
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .cloud__figure, .cloud__proof { display: none; }
+  .cloud__headline { font-size: clamp(28px, 7vw, 38px); max-width: none; }
+  .cloud__panel { padding: var(--s8) var(--s7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-link { animation: none; }
+}

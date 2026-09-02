@@ -1,0 +1,5 @@
+id: sa_sales
+kind: subjectArea
+name: Sales
+model: shop_concept
+color: "#3a5f8f"

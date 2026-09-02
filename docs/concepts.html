@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>How the Strata model works: three tiers explained</title>
+<meta name="description" content="Conceptual, logical and physical models linked together, how objects map to YAML files, domains, classification and governance skills.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/concepts.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="How the Strata model works: three tiers explained">
+<meta property="og:description" content="Conceptual, logical and physical models linked together, how objects map to YAML files, domains, classification and governance skills.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/concepts.html">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata <span>docs</span></a>
+  <nav>
+    <a href="quickstart.html">Get started</a>
+    <a href="cloud.html">Cloud</a>
+    <a href="self-hosting.html">Self-hosting</a>
+    <a href="configuration.html">Config</a>
+    <a href="security.html">Security</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <h3>Start here</h3>
+    <a href="docs.html">Introduction</a>
+    <a href="quickstart.html">Get started</a>
+    <a href="concepts.html" aria-current="page">How the model works</a>
+
+    <h3>Strata Cloud</h3>
+    <a href="cloud.html">Using Cloud</a>
+
+    <h3>Self-hosting</h3>
+    <a href="self-hosting.html">Run it yourself</a>
+    <a href="deploy-cloud.html">Hosting options</a>
+    <a href="configuration.html">Configuration reference</a>
+
+    <h3>Operating it</h3>
+    <a href="security.html">Security</a>
+    <a href="cli.html">CLI reference</a>
+
+    <h3>On this page</h3>
+    <a href="#tiers">The three tiers</a>
+    <a href="#files">What a file looks like</a>
+    <a href="#layout">Why the layout does not matter</a>
+    <a href="#domains">Domains and classification</a>
+    <a href="#skills">Skills</a>
+    <a href="#workflow">The workflow</a>
+  </aside>
+
+  <main>
+    <p class="eyebrow">Concepts</p>
+    <h1>How the model works</h1>
+    <p class="lede">
+      Enough to be useful, not a full reference. If you have used a modelling tool before, most of
+      this will be familiar. The parts that are different are called out.
+    </p>
+
+    <h2 id="tiers">The three tiers</h2>
+
+    <p>
+      Not three views of one thing. Three separate models, linked by <code>derivedFrom</code>, so
+      you can change the physical layer without touching the business definitions above it.
+    </p>
+
+    <pre><code>conceptual  ──▶  logical  ──▶  physical
+   │               │              │
+ Customer      Customer       dim_customer
+ Order         Order          fct_order
+
+ ideas and     attributes,    STRING, NUMERIC,
+ how they      keys, logical  partitioning,
+ relate        types          clustering</code></pre>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Tier</th><th>Holds</th><th>Answers</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Conceptual</td>
+            <td>Concepts, relationships, glossary terms, subject areas</td>
+            <td>What does the business talk about, in its own words?</td>
+          </tr>
+          <tr>
+            <td>Logical</td>
+            <td>Entities, attributes, keys, logical types</td>
+            <td>What are the things, and what identifies them?</td>
+          </tr>
+          <tr>
+            <td>Physical</td>
+            <td>Tables, columns, BigQuery types, partitioning, clustering</td>
+            <td>What will actually exist in the warehouse?</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      The physical tier can have several layers inside it, usually raw, staging and mart. Mappings
+      between layers carry the transformations: slowly changing dimension strategies, surrogate
+      keys, point in time lookups, conformed dimension registration.
+    </p>
+
+    <div class="note">
+      <b>You do not have to use all three</b>
+      <p>
+        Plenty of teams start with just a physical model and add the layers above it later, or never.
+        The chain is there when you want it and does not get in the way when you do not.
+      </p>
+    </div>
+
+    <h2 id="files">What a file looks like</h2>
+
+    <p>Every object is YAML. Here is a table:</p>
+
+    <p class="filename">models/shop_warehouse/tables/dim_customer.yaml</p>
+    <pre><code>id: tbl_dim_customer
+kind: table
+name: dim_customer
+model: shop_warehouse
+objectType: table
+description: One row per customer.
+layer: mart
+grain: One row per customer.
+columns:
+  - id: col_dc_customer_id
+    name: customer_id
+    dataType: STRING
+    mode: REQUIRED
+  - id: col_dc_email
+    name: email_address
+    dataType: STRING
+    mode: NULLABLE
+    classification:
+      sensitivity: confidential
+      categories:
+        - pii
+primaryKey:
+  - customer_id
+clusterBy:
+  - customer_id
+entityRef: shop_logical:Customer</code></pre>
+
+    <p>Three fields do the important work:</p>
+
+    <ul>
+      <li><code>id</code> is stable and never changes, so renaming a table does not break anything
+      that points at it.</li>
+      <li><code>kind</code> is what the object is. The loader reads this, not the folder name.</li>
+      <li><code>model</code> is which model owns it.</li>
+    </ul>
+
+    <p>
+      That is the whole trick. Because every file says what it is and where it belongs, nothing has
+      to be inferred from where it sits.
+    </p>
+
+    <h2 id="layout">Why the layout does not matter</h2>
+
+    <p>
+      Most tools care deeply about your folder structure. Strata does not, and that is a deliberate
+      design choice with a practical payoff: you can reorganise whenever your team's thinking
+      changes.
+    </p>
+
+    <pre><code>strata reorganize --preset by-layer --dry-run</code></pre>
+
+    <p>
+      Every file moves. Nothing about the model changes. A test in the repository asserts that
+      switching between any two layouts leaves the semantic content byte for byte identical.
+    </p>
+
+    <p>
+      So if your team starts out organising by model and later decides warehouse layer is the more
+      useful grouping, that is one command, not a migration.
+    </p>
+
+    <h2 id="domains">Domains and classification</h2>
+
+    <p>
+      A domain is a reusable definition of a kind of value. Define <code>email_address</code> once,
+      say it is personal data, and every column that uses it inherits that.
+    </p>
+
+    <p class="filename">domains/email_address.yaml</p>
+    <pre><code>id: dom_email_address
+kind: domain
+name: email_address
+description: An email address.
+logicalType: string
+physicalType: STRING
+nullable: true
+classification:
+  sensitivity: confidential
+  categories:
+    - pii</code></pre>
+
+    <p>Classification flows down a chain, and each step can override the one before it:</p>
+
+    <pre><code>column  ◀──  its domain  ◀──  logical attribute  ◀──  that attribute's domain</code></pre>
+
+    <p>
+      Merged field by field, not all or nothing. So a column can take the sensitivity from its
+      domain while setting its own categories.
+    </p>
+
+    <p>
+      From classification, Strata generates BigQuery policy tags, using a map you define in
+      <code>strata.config.yaml</code>. That is how a business statement like "email addresses are
+      personal data" becomes an actual access control in the warehouse.
+    </p>
+
+    <h2 id="skills">Skills</h2>
+
+    <p>
+      Skills are rules your team writes for itself, and they run automatically when somebody
+      proposes a change. A blocking skill refuses the proposal.
+    </p>
+
+    <p>
+      They live in your repository at <code>.strata/skills/*.md</code>, for the same reason the model
+      does: a rule that governs what may merge is a decision worth reviewing, versioning and
+      blaming.
+    </p>
+
+    <p>Two kinds:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Kind</th><th>What it is</th><th>Needs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>check</code></td>
+            <td>Deterministic, instant and free. Parameterises one of the built in rules, such as
+            "every table must have a grain" or "these words are forbidden in a name".</td>
+            <td>Nothing.</td>
+          </tr>
+          <tr>
+            <td><code>agent</code></td>
+            <td>A prompt run over the model by a language model, for judgements a rule cannot
+            express. "Does this table's grain match its name?"</td>
+            <td>A model provider key that you supply.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Without a key, an agent skill reports itself as <strong>skipped</strong> rather than passing.
+      A governance control that quietly does nothing is worse than one that is visibly off.
+    </p>
+
+    <div class="warn">
+      <b>Do not make an agent skill your only gate</b>
+      <p>
+        Model content arrives by pull request, and a table description can attempt to steer the
+        verdict. Agent skills only report and have no write path, which keeps the damage small, but
+        treat them as advice rather than enforcement. Deterministic <code>check</code> skills and
+        <code>strata check</code> in CI are what actually hold a line.
+      </p>
+    </div>
+
+    <h2 id="workflow">The workflow</h2>
+
+    <p>What actually happens when somebody changes a model.</p>
+
+    <ol class="steps">
+      <li>
+        <h3>They edit</h3>
+        <p>
+          On the diagram, in the properties panel, in the data dictionary grid, or in the YAML
+          dialog. Every change writes a file.
+        </p>
+      </li>
+      <li>
+        <h3>Changes accumulate</h3>
+        <p>
+          The Changes page shows what has changed, the same set <code>git status</code> would show.
+          Nothing has been committed yet.
+        </p>
+      </li>
+      <li>
+        <h3>They press Propose</h3>
+        <p>
+          Strata validates the model, runs the skills gate, then creates a branch, commits, pushes, and
+          opens a pull request.
+        </p>
+        <p>
+          If validation fails, the proposal is refused. There is an override, because sometimes you
+          genuinely need to share work in progress, and it is recorded.
+        </p>
+      </li>
+      <li>
+        <h3>Somebody reviews it</h3>
+        <p>
+          In GitHub, like any other pull request. <code>CODEOWNERS</code> decides who has to
+          approve. The <code>strata check</code> job decides whether it can merge.
+        </p>
+      </li>
+      <li>
+        <h3>It merges</h3>
+        <p>
+          Strata notices, and fires whatever integrations you have configured: update the Confluence
+          page, comment on the Jira ticket, post to the channel.
+        </p>
+      </li>
+    </ol>
+
+    <p>
+      Notice what is not in that list. There is no separate approval system, no second history to
+      reconcile, and no state that only exists inside strata. Every step uses something your team
+      already has.
+    </p>
+
+    <div class="nextprev">
+      <a href="cli.html">
+        <small>Previous</small>
+        <strong>CLI reference</strong>
+      </a>
+      <a href="quickstart.html">
+        <small>Next</small>
+        <strong>Get started</strong>
+      </a>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

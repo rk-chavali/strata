@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Strata Cloud: sign in with GitHub, your repository is the workspace</title>
+<meta name="description" content="Strata Cloud is the hosted version. Sign in with GitHub, pick a repository you already have access to, and it becomes your data modelling workspace. Your models stay in your own repository.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/cloud.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="Strata Cloud: sign in with GitHub, your repository is the workspace">
+<meta property="og:description" content="Strata Cloud is the hosted version. Sign in with GitHub, pick a repository you already have access to, and it becomes your data modelling workspace.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/cloud.html">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata <span>docs</span></a>
+  <nav>
+    <a href="quickstart.html">Get started</a>
+    <a href="cloud.html">Cloud</a>
+    <a href="self-hosting.html">Self-hosting</a>
+    <a href="configuration.html">Config</a>
+    <a href="security.html">Security</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <h3>Start here</h3>
+    <a href="docs.html">Introduction</a>
+    <a href="quickstart.html">Get started</a>
+    <a href="concepts.html">How the model works</a>
+
+    <h3>Strata Cloud</h3>
+    <a href="cloud.html" aria-current="page">Using Cloud</a>
+
+    <h3>Self-hosting</h3>
+    <a href="self-hosting.html">Run it yourself</a>
+    <a href="deploy-cloud.html">Hosting options</a>
+    <a href="configuration.html">Configuration reference</a>
+
+    <h3>Operating it</h3>
+    <a href="security.html">Security</a>
+    <a href="cli.html">CLI reference</a>
+
+    <h3>On this page</h3>
+    <a href="#start">Getting started</a>
+    <a href="#workspace">Your repository is the workspace</a>
+    <a href="#access">Who can see your models</a>
+    <a href="#data">What we store</a>
+    <a href="#enterprise">GitHub Enterprise</a>
+    <a href="#choose">Cloud or self-hosted</a>
+  </aside>
+
+  <main>
+    <p class="eyebrow">Cloud</p>
+    <h1>Strata Cloud</h1>
+    <p class="lede">
+      The hosted version. We run the infrastructure, you sign in with GitHub, and a repository
+      you already have access to becomes your data modelling workspace. There is nothing to
+      install and no server to keep alive.
+    </p>
+
+    <h2 id="start">Getting started</h2>
+
+    <ol class="steps">
+      <li>
+        <h3>Sign in with GitHub</h3>
+        <p>
+          Open <a href="https://strata-demo.onrender.com">strata-demo.onrender.com</a> and choose
+          <b>Continue with GitHub</b>. There is no separate account to create, no password to
+          pick and no email to confirm.
+        </p>
+        <p>
+          GitHub will ask you to authorise Strata. It asks for repository access because that is
+          where your models live and where pull requests get raised.
+        </p>
+      </li>
+
+      <li>
+        <h3>Choose a repository</h3>
+        <p>
+          You are shown the repositories you can write to. Pick the one holding your models, or
+          an empty one if you are starting fresh.
+        </p>
+        <p>
+          Only repositories you can write to are offered. A repository you can only read cannot
+          receive a model change, so opening it would give you a workspace where every save fails
+          at the last step.
+        </p>
+      </li>
+
+      <li>
+        <h3>Work</h3>
+        <p>
+          The first time a repository is opened it is cloned, which takes a moment. After that it
+          is already there. Draw a diagram, edit a table, and propose the change as a pull
+          request in your own repository.
+        </p>
+      </li>
+    </ol>
+
+    <div class="note">
+      <b>Free while in preview</b>
+      <p>
+        Cloud runs on a free tier today, which has two visible effects: it sleeps after fifteen
+        minutes of no traffic, so the first request after a quiet spell takes about a minute, and
+        its disk is wiped on restart, which signs everyone out and re-clones. Neither loses work,
+        because your models are in your repository. There is no uptime commitment yet.
+      </p>
+    </div>
+
+    <h2 id="workspace">Your repository is the workspace</h2>
+
+    <p>
+      This is the decision everything else on this page follows from, so it is worth stating
+      plainly: <b>a workspace is a GitHub repository.</b> Not a project we keep for you that
+      happens to sync somewhere.
+    </p>
+
+    <p>Three things fall out of that, and they are the reason it is built this way.</p>
+
+    <p>
+      <b>Onboarding is repository access.</b> You add a colleague to the repository in GitHub and
+      they can sign in and work in the same models. There is no invitation to send, no seat to
+      assign, and no second list of people that slowly stops matching the first.
+    </p>
+
+    <p>
+      <b>Two people who open the same repository get the same workspace.</b> Not a copy each.
+      They are editing the same files, and Strata shows who else is in there.
+    </p>
+
+    <p>
+      <b>Leaving is not a migration.</b> Your models are already in your repository, in plain
+      YAML, in a format the command line tool reads without any of this. Stopping means closing
+      the tab.
+    </p>
+
+    <h2 id="access">Who can see your models</h2>
+
+    <p>
+      Exactly the people who can already see the repository. Strata asks GitHub every time a
+      workspace is opened rather than keeping its own copy of who is allowed in, so access removed
+      in GitHub is access removed here, with nothing to synchronise and nothing to remember to
+      revoke twice.
+    </p>
+
+    <p>Your permission on the repository becomes your role:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>On the repository</th>
+          <th>In Strata</th>
+          <th>What that allows</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Admin</td>
+          <td>Admin</td>
+          <td>Everything, including settings and user administration</td>
+        </tr>
+        <tr>
+          <td>Write</td>
+          <td>Editor</td>
+          <td>Edit models, propose pull requests</td>
+        </tr>
+        <tr>
+          <td>Read</td>
+          <td>Viewer</td>
+          <td>Read models and diagrams, change nothing</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <b>Changes to permissions take effect at the next sign-in</b>
+      <p>
+        Your role is worked out when you open a workspace and held for the session, because asking
+        GitHub on every request would spend an account's whole hourly API allowance on page loads.
+        Sessions last twelve hours. If you need a permission change to apply immediately, sign out
+        and back in.
+      </p>
+    </div>
+
+    <h2 id="data">What we store</h2>
+
+    <p>
+      A working copy of your repository, so the editor has something to read, and a note of which
+      repository your session is pointed at. That is the whole list.
+    </p>
+
+    <p>
+      The working copy is disposable. It can be deleted at any time and is rebuilt by cloning your
+      repository again. Your repository remains the record of what your models actually are, which
+      means an outage here is an inconvenience rather than a loss.
+    </p>
+
+    <p>
+      Your GitHub access token is held in your session cookie, encrypted rather than signed. A
+      signed cookie is readable by anyone holding it, and what they would be reading is a live
+      credential for your source control.
+    </p>
+
+    <h2 id="enterprise">GitHub Enterprise</h2>
+
+    <p>
+      <b>Enterprise Cloud</b> works with no changes. It is github.com with single sign-on in
+      front, so signing in behaves the same way. Your organisation may require you to authorise
+      the token for single sign-on the first time, which is one extra click on GitHub's side.
+    </p>
+
+    <p>
+      <b>Enterprise Server</b> is a different host, so it needs an instance pointed at it. That
+      is a self-hosted deployment with two extra settings, covered in
+      <a href="configuration.html">configuration</a>. Your Enterprise Server is usually inside
+      your own network, which a hosted instance cannot reach anyway.
+    </p>
+
+    <h2 id="choose">Cloud or self-hosted</h2>
+
+    <p>
+      The same software either way. The question is only who runs it and where the working copy
+      sits, since in both cases your models live in your own git repository.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Cloud</th>
+          <th>Self-hosted</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Who runs the server</td>
+          <td>We do</td>
+          <td>You do</td>
+        </tr>
+        <tr>
+          <td>Where your models live</td>
+          <td>Your GitHub repository</td>
+          <td>Your GitHub repository</td>
+        </tr>
+        <tr>
+          <td>Where the working copy lives</td>
+          <td>Our infrastructure</td>
+          <td>Yours</td>
+        </tr>
+        <tr>
+          <td>Sign-in</td>
+          <td>GitHub</td>
+          <td>Local accounts</td>
+        </tr>
+        <tr>
+          <td>Private network access</td>
+          <td>No</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td>Setup</td>
+          <td>None</td>
+          <td>About fifteen minutes</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      Choose self-hosting if your repository is on an internal GitHub Enterprise Server, if your
+      BigQuery project is only reachable from inside your network, or if a review says the working
+      copy cannot leave your infrastructure. Those are the cases Cloud genuinely cannot serve, and
+      the container is the same one we run.
+    </p>
+
+    <p class="muted">
+      Note that deploying the container to Render, Fly or Google Cloud Run is self-hosting, not
+      Cloud: you own the instance and the data either way. Those options are compared in
+      <a href="deploy-cloud.html">hosting options</a>.
+    </p>
+
+    <div class="nextprev">
+      <a href="self-hosting.html">
+        <small>Previous</small>
+        <strong>Self-hosting</strong>
+      </a>
+      <a href="configuration.html">
+        <small>Next</small>
+        <strong>Configuration reference</strong>
+      </a>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

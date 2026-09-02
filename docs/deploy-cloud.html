@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Where to run self-hosted Strata: hosts compared</title>
+<meta name="description" content="Which hosting platforms can actually run self-hosted Strata, and which cannot. Render, Fly, Oracle and Cloud Run compared against what a git-backed container needs.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/deploy-cloud.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="Where to run self-hosted Strata: hosts compared">
+<meta property="og:description" content="Which hosting platforms can actually run self-hosted Strata, and which cannot. Render, Fly, Oracle and Cloud Run compared against what a git-backed container needs.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/deploy-cloud.html">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata <span>docs</span></a>
+  <nav>
+    <a href="quickstart.html">Get started</a>
+    <a href="cloud.html">Cloud</a>
+    <a href="self-hosting.html">Self-hosting</a>
+    <a href="configuration.html">Config</a>
+    <a href="security.html">Security</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <h3>Start here</h3>
+    <a href="docs.html">Introduction</a>
+    <a href="quickstart.html">Get started</a>
+    <a href="concepts.html">How the model works</a>
+
+    <h3>Strata Cloud</h3>
+    <a href="cloud.html">Using Cloud</a>
+
+    <h3>Self-hosting</h3>
+    <a href="self-hosting.html">Run it yourself</a>
+    <a href="deploy-cloud.html" aria-current="page">Hosting options</a>
+    <a href="configuration.html">Configuration reference</a>
+
+    <h3>Operating it</h3>
+    <a href="security.html">Security</a>
+    <a href="cli.html">CLI reference</a>
+
+    <h3>On this page</h3>
+    <a href="#needs">What Strata needs from a host</a>
+    <a href="#compare">The hosts, compared</a>
+    <a href="#demo">Walkthrough: Render</a>
+    <a href="#fly">Walkthrough: a real instance on Fly.io</a>
+    <a href="#oracle">Free forever: an Oracle VM</a>
+    <a href="#cloudrun">A note on Cloud Run</a>
+    <a href="#after">After you deploy</a>
+  </aside>
+
+  <main>
+    <p class="eyebrow">Hosting options</p>
+    <h1>Picking a host that actually fits</h1>
+    <p class="lede">
+      Where to run a self-hosted instance when you do not want to keep a server yourself. Strata
+      has three requirements that rule out most modern hosting platforms, and understanding them
+      takes two minutes and saves a wasted afternoon, so they come first.
+    </p>
+
+    <div class="note">
+      <b>This is still self-hosting</b>
+      <p>
+        Renting the machine does not change who owns the instance or the data: you deploy it, you
+        configure it, you upgrade it. If you want a version somebody else runs, that is
+        <a href="cloud.html">Strata Cloud</a>.
+      </p>
+    </div>
+
+    <h2 id="needs">What Strata needs from a host</h2>
+
+    <ol class="steps">
+      <li>
+        <h3>A disk that stays put</h3>
+        <p>
+          <code>STRATA_DATA_DIR</code> holds accounts, the session signing secret, encrypted
+          credentials, the delivery log and the audit log. If the disk resets, everyone is signed
+          out and all of that is gone.
+        </p>
+        <p>
+          The models survive regardless, because they live in git. That is the one thing you never
+          have to worry about.
+        </p>
+      </li>
+
+      <li>
+        <h3>Exactly one instance</h3>
+        <p>
+          The workspace is a git working tree. Two containers writing to it will corrupt it. Any
+          platform that autoscales by default needs to be pinned to one instance, and if it cannot
+          be pinned, it cannot run strata.
+        </p>
+      </li>
+
+      <li>
+        <h3>Long lived connections</h3>
+        <p>
+          The UI holds a stream open for presence and live updates. Platforms with short response
+          timeouts, or proxies that buffer, break that feature in a way that looks like a bug
+          rather than a configuration problem.
+        </p>
+      </li>
+    </ol>
+
+    <div class="note">
+      <b>The short answer</b>
+      <p>
+        Serverless is a poor fit. Strata is a small container that wants a small disk and wants to
+        stay running. A cheap VM or a container platform with a volume is what it is built for.
+      </p>
+    </div>
+
+    <h2 id="compare">The hosts, compared</h2>
+
+    <p>
+      Checked in August 2026. Free tiers change often, so verify pricing before you commit.
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Host</th><th>What the free tier really is</th><th>Persistent disk</th><th>Verdict</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Render</td>
+            <td>750 instance hours a month, 512 MB. Sleeps after 15 minutes with no traffic and
+            cold starts on the next request.</td>
+            <td>Not on free. About $0.25 per GB per month on paid plans, which start at $7.</td>
+            <td><span class="pill pill-warn">Demo only</span> Free means the data directory resets
+            every time it wakes.</td>
+          </tr>
+          <tr>
+            <td>Fly.io</td>
+            <td>No free tier for new accounts since 2024. New signups get a trial of 2 VM hours or
+            7 days.</td>
+            <td>Yes. $0.08 per GB per month, first 10 GB free.</td>
+            <td><span class="pill pill-good">Best fit</span> Single machine, real volume, Docker
+            native. Roughly $3 to $5 a month for a small always on instance.</td>
+          </tr>
+          <tr>
+            <td>Railway</td>
+            <td>Hobby plan includes $5 of usage credits a month. No card needed to try.</td>
+            <td>Yes. 0.5 GB on Hobby, about $0.15 per GB per month above that.</td>
+            <td><span class="pill pill-good">Works</span> Quickest to set up. The volume is tight
+            if your model repo is large.</td>
+          </tr>
+          <tr>
+            <td>Oracle Always Free</td>
+            <td>A real VM that stays on. Cut in June 2026 from 4 CPU and 24 GB to 2 CPU and 12 GB
+            on ARM.</td>
+            <td>Yes. 200 GB block storage included.</td>
+            <td><span class="pill pill-good">Genuinely free</span> The only free option with a real
+            disk. You manage a VM yourself.</td>
+          </tr>
+          <tr>
+            <td>Google Cloud Run</td>
+            <td>Generous, and genuinely free at low traffic.</td>
+            <td>None. No local disk survives a restart.</td>
+            <td><span class="pill pill-warn">Demo only</span> And you must pin max instances to 1
+            or two containers will fight over the checkout.</td>
+          </tr>
+          <tr>
+            <td>Koyeb</td>
+            <td>One free web service, 512 MB. <strong>A credit card is required</strong>, with a
+            $29 pre-authorisation hold. Listicles that say otherwise are wrong; this is from
+            Koyeb's own pricing FAQ.</td>
+            <td>Not on free instances.</td>
+            <td><span class="pill pill-warn">Card needed</span> Otherwise a reasonable demo
+            host.</td>
+          </tr>
+          <tr>
+            <td>Hugging Face Spaces</td>
+            <td>Static Spaces are free for everyone. <strong>Docker Spaces now require a paid
+            plan</strong> as of 2026.</td>
+            <td>No, storage is not persistent.</td>
+            <td><span class="pill pill-stop">No</span> Free tier can no longer run a container.
+            Static Spaces remain an option for the waking page.</td>
+          </tr>
+          <tr>
+            <td>Hetzner, DigitalOcean, Linode</td>
+            <td>Not free. Around $4 to $6 a month.</td>
+            <td>Yes, a real disk.</td>
+            <td><span class="pill pill-good">Boring and reliable</span> Run Docker Compose on it and
+            follow the <a href="self-hosting.html">self-hosting guide</a>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <b>The honest conclusion</b>
+      <p>
+        <strong>Render is the only host on this list that runs a container, needs no credit card,
+        and is free indefinitely.</strong> Everything else either wants a card, has no free tier
+        for new accounts, or cannot keep a container running.
+      </p>
+      <p>
+        And every free container tier sleeps. That is the business model, not an oversight. There
+        is no free always-on container host without a card, so the question is not which host
+        avoids the cold start. It is what the visitor sees during it.
+      </p>
+    </div>
+
+    <h3>How to choose</h3>
+    <ul>
+      <li><strong>You want strangers to try strata.</strong> Render free, or Cloud Run pinned to one
+      instance. Nothing precious is stored, so losing it does not matter.</li>
+      <li><strong>You want a real instance for your team, cheaply.</strong> Fly.io with a volume, or
+      an Oracle Always Free VM.</li>
+      <li><strong>You want something you will not have to think about.</strong> A small VPS running
+      Docker Compose.</li>
+    </ul>
+
+    <h2 id="demo">Walkthrough: Render</h2>
+
+    <p>
+      Render can run a published container directly, with no repository and no build. That makes
+      it the shortest route to an instance you can reach from anywhere, and it is free to try.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <h3>Create the service from the image</h3>
+        <p>
+          In Render, choose <b>New</b>, then <b>Web Service</b>, then <b>Existing image</b>.
+          There is nothing to connect and nothing to fork.
+        </p>
+        <p class="filename">Image URL</p>
+        <pre><code>ghcr.io/rk-chavali/strata:latest</code></pre>
+        <p>
+          Pinned to the minor version so you get patches and never a surprise major upgrade.
+        </p>
+      </li>
+
+      <li>
+        <h3>Generate a password hash for the administrator</h3>
+        <p>
+          Do this before the first start. It is what stops a stranger becoming your administrator
+          if the disk is ever lost.
+        </p>
+        <pre><code>docker run --rm -it ghcr.io/rk-chavali/strata   node apps/server/dist/hash-password.js</code></pre>
+        <p>
+          It asks for a password without echoing it, then prints a hash like
+          <code>scrypt$a1b2...$c3d4...</code>. The hash is safe to paste into a settings screen:
+          it cannot be replayed anywhere else and it cannot be turned back into the password.
+        </p>
+      </li>
+
+      <li>
+        <h3>Set the environment variables</h3>
+        <p>
+          Under <b>Environment</b>. <code>STRATA_MODEL_REPO</code> is the repository holding your
+          models, which Strata clones on first start because there is no host directory to mount.
+        </p>
+        <pre><code>STRATA_WORKSPACE      /workspace
+STRATA_DATA_DIR       /data
+STRATA_MODEL_REPO     https://github.com/your-org/data-models.git
+STRATA_ADMIN_USERNAME admin
+STRATA_ADMIN_PASSWORD_HASH  scrypt$a1b2...$c3d4...
+STRATA_COOKIE_SECURE  true
+STRATA_TRUST_PROXY    true
+GITHUB_TOKEN          ghp_your_token_here</code></pre>
+        <p>
+          <code>STRATA_TRUST_PROXY</code> matters here: Render terminates TLS in front of the
+          container, so without it every visitor shares one sign-in throttle bucket.
+        </p>
+      </li>
+
+      <li>
+        <h3>Set the health check path</h3>
+        <pre><code>/api/health</code></pre>
+        <p>
+          Render uses this to tell a slow start from a failed one, and to stop routing traffic to
+          an instance that has stopped answering.
+        </p>
+      </li>
+
+      <li>
+        <h3>Add a disk</h3>
+        <p>
+          Mount it at <code>/data</code>, the value of <code>STRATA_DATA_DIR</code> above. That is
+          where accounts and the session signing secret live.
+        </p>
+        <div class="warn">
+          <b>The free plan has no disks</b>
+          <p>
+            Without one, <code>/data</code> is wiped whenever the instance restarts, which signs
+            everyone out and reopens first-run setup. Your models survive because they are in git,
+            but anyone reaching the URL after a restart could claim the administrator account.
+            Seeding the administrator above is what closes that. For anything real, use a paid
+            plan and a disk.
+          </p>
+        </div>
+      </li>
+
+      <li>
+        <h3>Keep it to one instance</h3>
+        <p>
+          The git working tree is shared mutable state, so two containers writing one workspace
+          will corrupt it. Free gives you one instance regardless. On a paid plan, set the
+          instance count to 1 and leave it there.
+        </p>
+      </li>
+    </ol>
+
+    <div class="note">
+      <b>Free instances sleep</b>
+      <p>
+        After fifteen minutes of no traffic, and the next request waits about a minute while the
+        container wakes. Fine for evaluation and for a team that uses it occasionally. Not fine as
+        the tool somebody opens first thing every morning.
+      </p>
+    </div>
+
+    <h2 id="fly">Walkthrough: a real instance on Fly.io</h2>
+
+    <p>
+      When you want an instance that keeps real models, this is the cheapest option that meets all
+      three requirements properly.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <h3>Create the app and a volume</h3>
+        <pre><code>fly launch --no-deploy --name strata-yourteam
+fly volumes create strata_data --size 3 --region lhr</code></pre>
+        <p>
+          Three gigabytes is generous. The data directory is well under a megabyte, and the rest is
+          the git checkout.
+        </p>
+      </li>
+
+      <li>
+        <h3>Write the config</h3>
+        <p class="filename">fly.toml</p>
+        <pre><code>app = "strata-yourteam"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "4000"
+  STRATA_DATA_DIR = "/data/auth"
+  STRATA_WORKSPACE = "/data/workspace"
+  STRATA_MODEL_REPO = "https://github.com/your-org/data-models.git"
+  STRATA_COOKIE_SECURE = "true"
+  STRATA_TRUST_PROXY = "true"
+
+[[mounts]]
+  source = "strata_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  # One machine, always. The git working tree cannot take two writers.
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"</code></pre>
+      </li>
+
+      <li>
+        <h3>Set the secrets</h3>
+        <pre><code>fly secrets set \
+  GITHUB_TOKEN=ghp_your_token_here \
+  STRATA_ADMIN_USERNAME=admin \
+  STRATA_ADMIN_PASSWORD_HASH='scrypt$a1b2...$c3d4...'</code></pre>
+        <p>
+          Generate the hash first. See
+          <a href="self-hosting.html#admin">Seeding the administrator</a>.
+        </p>
+      </li>
+
+      <li>
+        <h3>Deploy</h3>
+        <pre><code>fly deploy</code></pre>
+        <p>Then watch it come up:</p>
+        <pre><code>fly logs</code></pre>
+        <p>
+          You want to see the repository clone and the administrator seeded, before the listening
+          line.
+        </p>
+      </li>
+
+      <li>
+        <h3>Check the volume is really mounted</h3>
+        <pre><code>fly ssh console -C "ls -la /data"</code></pre>
+        <p>
+          You should see <code>auth</code> and <code>workspace</code>. If <code>/data</code> is
+          empty after a restart, the mount is not working and you are one deploy away from losing
+          your accounts.
+        </p>
+      </li>
+    </ol>
+
+    <div class="warn">
+      <b>Turn off auto stop</b>
+      <p>
+        Fly can stop machines when idle and start them on a request. That is a nice feature and it
+        is wrong here: a cold start re-clones the repository, and a stopped machine cannot serve the
+        event stream the UI is holding open. The settings above keep one machine running.
+      </p>
+    </div>
+
+    <h2 id="oracle">Free forever: an Oracle VM</h2>
+
+    <p>
+      If cost is the deciding factor and you do not mind managing a machine, Oracle's Always Free
+      tier gives you a real ARM VM with a real disk that stays on. In June 2026 the ARM allowance
+      was halved to 2 CPUs and 12 GB of memory, which is still far more than Strata needs.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <h3>Create the instance</h3>
+        <p>
+          An Ampere A1 shape with 1 CPU and 6 GB is plenty. Pick a recent Ubuntu image. Open port
+          443 in the security list.
+        </p>
+      </li>
+      <li>
+        <h3>Install Docker</h3>
+        <pre><code>sudo apt update &amp;&amp; sudo apt install -y docker.io docker-compose-plugin git
+sudo usermod -aG docker $USER</code></pre>
+        <p>
+          Nothing to clone: the next step pulls a published image.
+        </p>
+      </li>
+      <li>
+        <h3>Follow the Docker Compose walkthrough</h3>
+        <p>
+          From here it is exactly the <a href="self-hosting.html#compose">self-hosting
+          walkthrough</a>. Put Caddy or nginx in front for TLS, and set
+          <code>STRATA_COOKIE_SECURE=true</code> and <code>STRATA_TRUST_PROXY=true</code>.
+        </p>
+      </li>
+    </ol>
+
+    <p>
+      One caveat worth knowing: Oracle has been known to reclaim idle free instances, and they
+      changed the allowance in 2026 without announcing it. Keep a backup of the data directory
+      somewhere else.
+    </p>
+
+    <h2 id="cloudrun">A note on Cloud Run</h2>
+
+    <p>
+      Cloud Run can run Strata, but only as a demo, and only with care. There is no local disk that
+      survives a restart, so:
+    </p>
+
+    <ul>
+      <li>Set <code>--max-instances=1</code>. This is not optional. Two containers on one checkout
+      will corrupt it.</li>
+      <li>Set <code>STRATA_MODEL_REPO</code> so the container clones the model on every cold
+      start.</li>
+      <li>Seed the administrator, or run with <code>STRATA_AUTH=off</code> and an empty feature
+      list.</li>
+      <li>Accept that stored credentials, the delivery log and the audit log are lost on every cold
+      start.</li>
+    </ul>
+
+    <pre><code>gcloud run deploy strata \
+  --image ghcr.io/rk-chavali/strata \
+  --max-instances 1 \
+  --min-instances 1 \
+  --set-env-vars STRATA_MODEL_REPO=https://github.com/your-org/data-models.git \
+  --set-env-vars STRATA_COOKIE_SECURE=true,STRATA_TRUST_PROXY=true</code></pre>
+
+    <p>
+      <code>--min-instances 1</code> costs money but avoids a cold start on every visit, which on
+      Cloud Run means re-cloning the repository.
+    </p>
+
+    <h2 id="after">After you deploy</h2>
+
+    <p>Four checks, whichever host you picked.</p>
+
+    <ol class="steps">
+      <li>
+        <h3>Is setup closed?</h3>
+        <pre><code>curl -s https://your-host/api/health</code></pre>
+        <p>
+          Then sign in as an administrator and open <code>/api/health/detail</code>. If
+          <code>auth.needsSetup</code> is <code>true</code> on a public address, anyone can claim
+          the administrator account. Seed it now.
+        </p>
+      </li>
+      <li>
+        <h3>Are the security headers there?</h3>
+        <pre><code>curl -sI https://your-host/api/health | grep -i "content-security-policy\|x-frame-options"</code></pre>
+        <p>If those are missing, something in front of Strata is stripping them.</p>
+      </li>
+      <li>
+        <h3>Does the data directory survive a restart?</h3>
+        <p>
+          Restart the service and sign in again. If you are signed out, the volume is not mounted
+          where you think it is, and you will lose everything on the next deploy.
+        </p>
+      </li>
+      <li>
+        <h3>Do live updates work?</h3>
+        <p>
+          Open the site in two browsers and rename something in one. If the other does not notice
+          within a second or two, a proxy is buffering the event stream. See
+          <a href="self-hosting.html#proxy">Behind a proxy</a>.
+        </p>
+      </li>
+    </ol>
+
+    <div class="nextprev">
+      <a href="self-hosting.html">
+        <small>Previous</small>
+        <strong>Self-hosting</strong>
+      </a>
+      <a href="configuration.html">
+        <small>Next</small>
+        <strong>Configuration reference</strong>
+      </a>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

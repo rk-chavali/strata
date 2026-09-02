@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Try Strata: a live demo, no signup</title>
+<meta name="description" content="Open a private scratch workspace and try Strata in your browser. Nothing to install, no account needed.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/try.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="Try Strata: a live demo, no signup">
+<meta property="og:description" content="Open a private scratch workspace and try Strata in your browser. Nothing to install, no account needed.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/try.html">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/*
+  The waking page.
+
+  This page exists because of one hard constraint: while the demo container is asleep, it cannot
+  serve anything. A loading screen inside the app is no help, because the app is the thing that is
+  not running yet. So this page lives somewhere that never sleeps, wakes the demo by asking it for
+  its health, and gives the visitor something honest to watch while it comes up.
+
+  Everything here is inline and dependency free so it paints on the first frame.
+*/
+
+:root {
+  --paper: #fbfcfe;
+  --surface: #ffffff;
+  --rule: #dde2ec;
+  --ink: #10151f;
+  --ink-2: #3c4557;
+  --ink-3: #6a7286;
+  --accent: #21357a;
+  --accent-2: #3d55b0;
+  --accent-wash: #eaedf8;
+  --good: #1c6a4f;
+  --warn: #96540f;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0c1016;
+    --surface: #131822;
+    --rule: #293041;
+    --ink: #eceff6;
+    --ink-2: #b2b9cb;
+    --ink-3: #828b9f;
+    --accent: #93a6ea;
+    --accent-2: #b3c1f3;
+    --accent-wash: #1b2340;
+    --good: #6ec7a2;
+    --warn: #e6ab63;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #0c1016;
+  --surface: #131822;
+  --rule: #293041;
+  --ink: #eceff6;
+  --ink-2: #b2b9cb;
+  --ink-3: #828b9f;
+  --accent: #93a6ea;
+  --accent-2: #b3c1f3;
+  --accent-wash: #1b2340;
+  --good: #6ec7a2;
+  --warn: #e6ab63;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  display: grid;
+  place-items: center;
+  padding: 32px 24px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.card {
+  width: 100%;
+  max-width: 620px;
+}
+
+/* A square has no baseline to sit on, so the lockup centres instead. */
+.brand__mark {
+  width: 20px;
+  height: 20px;
+  fill: var(--accent);
+  flex: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  margin-bottom: 40px;
+}
+.brand span {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+
+h1 {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: clamp(28px, 5vw, 38px);
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  margin: 0 0 10px;
+}
+
+.lede {
+  font-size: 16.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  margin: 0 0 32px;
+  max-width: 52ch;
+}
+
+/* ---------------------------------------------------------------- the diagram */
+
+.stage {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 28px 24px;
+  margin-bottom: 28px;
+}
+
+svg { width: 100%; height: auto; display: block; }
+
+.box-frame {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.box-head { fill: var(--accent-wash); }
+.box-title { font-family: var(--mono); font-size: 9px; fill: var(--accent); font-weight: 500; }
+.row-text { font-family: var(--mono); font-size: 7.5px; fill: var(--ink-3); }
+.row-rule { stroke: var(--rule); stroke-width: 0.75; }
+.key-dot { fill: var(--accent-2); }
+.link { stroke: var(--accent-2); stroke-width: 1.5; fill: none; }
+
+/*
+  The build sequence.
+
+  Each element draws itself in, in the order somebody would actually create it: the tables first,
+  then their columns, then the relationship between them. It loops every 7 seconds, which is long
+  enough not to feel frantic while somebody waits up to a minute.
+*/
+.anim { opacity: 0; animation: appear 7s infinite; }
+@keyframes appear {
+  0%, 4%   { opacity: 0; transform: translateY(3px); }
+  10%, 88% { opacity: 1; transform: translateY(0); }
+  100%     { opacity: 0; transform: translateY(0); }
+}
+
+.d1 { animation-delay: 0.0s; }
+.d2 { animation-delay: 0.35s; }
+.d3 { animation-delay: 0.7s; }
+.d4 { animation-delay: 1.0s; }
+.d5 { animation-delay: 1.3s; }
+.d6 { animation-delay: 1.6s; }
+.d7 { animation-delay: 1.9s; }
+.d8 { animation-delay: 2.2s; }
+.d9 { animation-delay: 2.5s; }
+
+.draw {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: draw 7s infinite;
+  animation-delay: 2.8s;
+}
+@keyframes draw {
+  0%, 34%  { stroke-dashoffset: 200; }
+  46%, 88% { stroke-dashoffset: 0; }
+  100%     { stroke-dashoffset: 0; opacity: 0; }
+}
+
+/* ---------------------------------------------------------------- steps */
+
+.steps { list-style: none; margin: 0 0 28px; padding: 0; }
+
+.steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 9px 0;
+  color: var(--ink-3);
+  font-size: 15.5px;
+  line-height: 1.45;
+}
+
+.steps li[data-state="active"] { color: var(--ink); }
+.steps li[data-state="done"] { color: var(--ink-2); }
+
+.mark {
+  flex: none;
+  width: 19px;
+  height: 19px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 1.5px solid var(--rule);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  line-height: 1;
+}
+
+li[data-state="active"] .mark {
+  border-color: var(--accent);
+  border-right-color: transparent;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+li[data-state="done"] .mark {
+  border-color: var(--good);
+  background: var(--good);
+  color: var(--paper);
+}
+li[data-state="done"] .mark::after { content: "\2713"; font-weight: 700; }
+
+.detail {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink-3);
+  min-height: 1.4em;
+  margin: 0 0 26px;
+}
+
+.bar {
+  height: 3px;
+  background: var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 26px;
+}
+.bar div {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+.note {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  border-top: 1px solid var(--rule);
+  padding-top: 20px;
+}
+.note a { color: var(--accent); }
+
+.actions { display: none; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+.actions.show { display: flex; }
+
+.btn {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 15px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--paper);
+  text-decoration: none;
+  cursor: pointer;
+}
+:root[data-theme="dark"] .btn:not(.ghost),
+:root:not([data-theme="light"]) .btn:not(.ghost) { color: #0c1016; }
+
+.btn.ghost { background: transparent; color: var(--accent); }
+
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/*
+  Somebody who has asked for less motion still needs to know something is happening, so the
+  spinner and the progress bar stay. Only the looping diagram stops, frozen on its finished state.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .anim { opacity: 1; animation: none; transform: none; }
+  .draw { stroke-dashoffset: 0; animation: none; }
+  li[data-state="active"] .mark { animation: none; border-right-color: var(--accent); }
+}
+</style>
+</head>
+<body>
+
+<main class="card">
+  <div class="brand"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata <span>demo</span></div>
+
+  <h1 id="heading">Setting up your workspace</h1>
+  <p class="lede" id="lede">
+    The demo server sleeps when nobody is using it, so the first visit takes about a minute.
+    We are waking it up and building you a private workspace to play in.
+  </p>
+
+  <div class="stage" aria-hidden="true">
+    <svg viewBox="0 0 320 130" role="img">
+      <!-- dim_customer -->
+      <g class="anim d1">
+        <rect class="box-frame" x="14" y="26" width="112" height="78" rx="4"></rect>
+        <path class="box-head" d="M14 30a4 4 0 0 1 4-4h104a4 4 0 0 1 4 4v12H14z"></path>
+        <text class="box-title" x="22" y="38">dim_customer</text>
+      </g>
+      <g class="anim d2">
+        <circle class="key-dot" cx="24" cy="53" r="2"></circle>
+        <text class="row-text" x="32" y="56">customer_id</text>
+        <line class="row-rule" x1="14" y1="61" x2="126" y2="61"></line>
+      </g>
+      <g class="anim d3">
+        <text class="row-text" x="32" y="72">customer_name</text>
+        <line class="row-rule" x1="14" y1="77" x2="126" y2="77"></line>
+      </g>
+      <g class="anim d4">
+        <text class="row-text" x="32" y="88">email_address</text>
+      </g>
+
+      <!-- fct_order -->
+      <g class="anim d5">
+        <rect class="box-frame" x="194" y="26" width="112" height="78" rx="4"></rect>
+        <path class="box-head" d="M194 30a4 4 0 0 1 4-4h104a4 4 0 0 1 4 4v12H194z"></path>
+        <text class="box-title" x="202" y="38">fct_order</text>
+      </g>
+      <g class="anim d6">
+        <circle class="key-dot" cx="204" cy="53" r="2"></circle>
+        <text class="row-text" x="212" y="56">order_id</text>
+        <line class="row-rule" x1="194" y1="61" x2="306" y2="61"></line>
+      </g>
+      <g class="anim d7">
+        <text class="row-text" x="212" y="72">customer_id</text>
+        <line class="row-rule" x1="194" y1="77" x2="306" y2="77"></line>
+      </g>
+      <g class="anim d8">
+        <text class="row-text" x="212" y="88">order_total</text>
+      </g>
+
+      <!-- the relationship, drawn last, with a crow's foot -->
+      <path class="link draw" d="M126 53 H160 V72 H194"></path>
+      <path class="link draw" d="M194 72 l-8 -4 M194 72 l-8 4"></path>
+    </svg>
+  </div>
+
+  <ol class="steps" id="steps">
+    <li data-step="wake" data-state="active"><span class="mark"></span><span>Waking the demo server</span></li>
+    <li data-step="workspace" data-state="idle"><span class="mark"></span><span>Creating your private workspace</span></li>
+    <li data-step="model" data-state="idle"><span class="mark"></span><span>Loading the example model</span></li>
+  </ol>
+
+  <div class="bar"><div id="bar"></div></div>
+  <p class="detail" id="detail">Sending the first request.</p>
+
+  <div class="actions" id="actions">
+    <a class="btn" id="go" href="#">Open the demo</a>
+    <a class="btn ghost" href="docs.html">Read the docs instead</a>
+  </div>
+
+  <p class="note" id="note">
+    Nothing you do here is saved permanently. Every visitor gets their own scratch workspace, and
+    it is deleted after two hours. You can download everything you build as a single file at any
+    time. <a href="docs.html">Read the docs</a> while you wait.
+  </p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  /**
+   * Where the demo lives.
+   *
+   * Replace this with your Render URL after the first deploy. It is the only thing on this page
+   * that needs changing, which is deliberate: this page is published as a static file and should
+   * never need a build step.
+   */
+  // The anonymous trial, which is a different service from the hosted product. `strata-demo`
+  // asks you to sign in with GitHub; this one hands every visitor a scratch workspace.
+  var DEMO_URL = "https://strata-try.onrender.com";
+
+  /* A query parameter wins, so one page can front several deployments while testing. */
+  var override = new URLSearchParams(location.search).get("to");
+  if (override && /^https:\/\/[a-z0-9.-]+$/i.test(override)) DEMO_URL = override;
+
+  var stepsEl = document.getElementById("steps");
+  var detailEl = document.getElementById("detail");
+  var barEl = document.getElementById("bar");
+  var actionsEl = document.getElementById("actions");
+  var goEl = document.getElementById("go");
+  var headingEl = document.getElementById("heading");
+  var ledeEl = document.getElementById("lede");
+  var noteEl = document.getElementById("note");
+
+  goEl.href = DEMO_URL;
+
+  var started = Date.now();
+  var attempts = 0;
+  var pacer = null;
+
+  /*
+    Stop pacing the bar.
+
+    Without this, `paceBar` keeps firing after the outcome is known and drags the bar back down
+    from 100 percent to wherever the clock says it should be. The finished state then shows a
+    bar that is visibly not full, which reads as "something is still wrong".
+  */
+  function stopPacing() {
+    if (pacer !== null) {
+      clearInterval(pacer);
+      pacer = null;
+    }
+  }
+
+  /*
+    A cold start on a free instance is about a minute, so the bar is paced against sixty seconds
+    rather than against real progress, which we cannot see from outside.
+
+    It deliberately eases towards 90 percent and stops there. A bar that sits at 100 percent while
+    nothing happens is worse than one that visibly still has somewhere to go, and claiming to be
+    finished when we are not is the kind of small lie that makes a product feel untrustworthy.
+  */
+  function paceBar() {
+    var elapsed = (Date.now() - started) / 1000;
+    var pct = Math.min(90, 100 * (1 - Math.exp(-elapsed / 22)));
+    barEl.style.width = pct.toFixed(1) + "%";
+  }
+
+  function setStep(name, state) {
+    var li = stepsEl.querySelector('[data-step="' + name + '"]');
+    if (li) li.setAttribute("data-state", state);
+  }
+
+  function finish() {
+    stopPacing();
+    setStep("wake", "done");
+    setStep("workspace", "done");
+    setStep("model", "done");
+    barEl.style.width = "100%";
+    headingEl.textContent = "Your workspace is ready";
+    ledeEl.textContent = "Taking you there now.";
+    detailEl.textContent = "Ready in " + Math.round((Date.now() - started) / 1000) + " seconds.";
+    actionsEl.classList.add("show");
+
+    /*
+      A short pause before redirecting, on purpose.
+
+      Snapping away the instant it is ready reads as a flicker, and somebody who looked away
+      misses that anything happened at all. The button is already live, so an impatient visitor
+      does not have to wait for the timer.
+    */
+    setTimeout(function () { location.href = DEMO_URL; }, 900);
+  }
+
+  function giveUp() {
+    stopPacing();
+    setStep("wake", "idle");
+    headingEl.textContent = "The demo is taking longer than usual";
+    ledeEl.textContent =
+      "It has not answered in two minutes, which usually means the free instance is rebuilding " +
+      "after a deploy. You can try it directly, or come back in a few minutes.";
+    detailEl.textContent = "Gave up after " + attempts + " attempts.";
+    barEl.style.width = "100%";
+    barEl.style.background = "var(--warn)";
+    actionsEl.classList.add("show");
+    noteEl.innerHTML =
+      'If this keeps happening the demo may be down. The docs work regardless: ' +
+      '<a href="docs.html">read them here</a>.';
+  }
+
+  /**
+   * Ask the demo whether it is awake.
+   *
+   * Two ways, and the fallback matters. A normal request reads the JSON body, which needs the
+   * demo to list this page's origin in STRATA_ALLOWED_ORIGINS. If that is not configured, the browser
+   * refuses to let us read the response, and we fall back to a no-cors request where we cannot see
+   * the body at all. That is still enough: the request only resolves if something answered.
+   */
+  function probe() {
+    attempts += 1;
+    detailEl.textContent =
+      "Attempt " + attempts + ", " + Math.round((Date.now() - started) / 1000) + "s elapsed.";
+
+    var url = DEMO_URL + "/api/health?t=" + Date.now();
+
+    fetch(url, { mode: "cors", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error("status " + r.status)); })
+      .then(function (body) { if (body && body.ok) awake(); else schedule(); })
+      .catch(function () {
+        fetch(url, { mode: "no-cors", cache: "no-store" })
+          .then(function () { awake(); })
+          .catch(function () { schedule(); });
+      });
+  }
+
+  var settled = false;
+
+  function awake() {
+    if (settled) return;
+    settled = true;
+
+    setStep("wake", "done");
+    setStep("workspace", "active");
+    detailEl.textContent = "Server is up. Building your workspace.";
+
+    /*
+      The two steps after this are real work the server does on the first page load: the tenant
+      middleware creates a directory and copies the example into it, then the client loads the
+      model. We cannot observe either from here, so they are shown on a short timer rather than
+      pretended to be measured. The timings match what those operations actually take.
+    */
+    setTimeout(function () {
+      setStep("workspace", "done");
+      setStep("model", "active");
+      detailEl.textContent = "Loading the example model.";
+    }, 550);
+
+    setTimeout(finish, 1200);
+  }
+
+  function schedule() {
+    if (settled) return;
+
+    if (Date.now() - started > 120000) {
+      giveUp();
+      return;
+    }
+
+    /*
+      Poll often at first, then back off. A container that was only briefly idle answers in a
+      couple of seconds, and making that visitor wait a fixed ten seconds would be the common case
+      paying for the rare one.
+    */
+    var wait = attempts < 5 ? 1500 : attempts < 12 ? 3000 : 5000;
+    setTimeout(probe, wait);
+  }
+
+  pacer = setInterval(paceBar, 250);
+  paceBar();
+  probe();
+})();
+</script>
+
+</body>
+</html>

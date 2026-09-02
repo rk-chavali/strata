@@ -1,0 +1,7 @@
+id: mdl_shop_logical
+kind: model
+name: shop_logical
+tier: logical
+namespace: shop
+description: The same ideas, given attributes, keys and types. Warehouse-agnostic.
+derivedFrom: shop_concept

@@ -1,0 +1,30 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.local
+coverage/
+.DS_Store
+Thumbs.db
+
+# local scratch
+.strata/cache/
+tmp/
+
+# Auth data: password hashes and the session signing secret. Never commit this.
+.strata-data/
+**/.strata-data/
+.gstack/
+
+# Local scratch model repos.
+#
+# `examples/retail` is its own git repository with its own remote : it is a personal test
+# workspace, not a product example. Committing it here would add a submodule gitlink, so anyone
+# cloning would get an empty directory and a confusing error.
+#
+# `examples/quickstart` is the committed example and the dev default. It is small, valid, and
+# checked by CI, so a fresh clone opens on something real.
+examples/retail/
+
+# Design notes. notes/README.md says these are working documents, not published.
+notes/

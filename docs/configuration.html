@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Strata configuration reference: every setting</title>
+<meta name="description" content="Every Strata environment variable, what it does, and what happens if you leave it out. Workspace, accounts, security, features and logging.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/configuration.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="Strata configuration reference: every setting">
+<meta property="og:description" content="Every Strata environment variable, what it does, and what happens if you leave it out. Workspace, accounts, security, features and logging.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/configuration.html">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata <span>docs</span></a>
+  <nav>
+    <a href="quickstart.html">Get started</a>
+    <a href="cloud.html">Cloud</a>
+    <a href="self-hosting.html">Self-hosting</a>
+    <a href="configuration.html">Config</a>
+    <a href="security.html">Security</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <h3>Start here</h3>
+    <a href="docs.html">Introduction</a>
+    <a href="quickstart.html">Get started</a>
+    <a href="concepts.html">How the model works</a>
+
+    <h3>Strata Cloud</h3>
+    <a href="cloud.html">Using Cloud</a>
+
+    <h3>Self-hosting</h3>
+    <a href="self-hosting.html">Run it yourself</a>
+    <a href="deploy-cloud.html">Hosting options</a>
+    <a href="configuration.html" aria-current="page">Configuration reference</a>
+
+    <h3>Operating it</h3>
+    <a href="security.html">Security</a>
+    <a href="cli.html">CLI reference</a>
+
+    <h3>On this page</h3>
+    <a href="#where">Where the model lives</a>
+    <a href="#auth">Accounts and sign in</a>
+    <a href="#network">Network and browser</a>
+    <a href="#features">Turning features off</a>
+    <a href="#tenants">One workspace per visitor</a>
+    <a href="#creds">Credentials</a>
+    <a href="#logs">Logging</a>
+    <a href="#watch">Merge detection</a>
+    <a href="#config">The config file</a>
+  </aside>
+
+  <main>
+    <p class="eyebrow">Reference</p>
+    <h1>Configuration</h1>
+    <p class="lede">
+      Every option is an environment variable. None are required to start. Anything you supply this
+      way is read only in the UI, so Settings shows it as "set by your deployment" instead of
+      letting somebody create drift that the next upgrade silently reverts.
+    </p>
+
+    <h2 id="where">Where the model lives</h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>STRATA_WORKSPACE</code></td>
+            <td><code>examples/quickstart</code></td>
+            <td>Path to the git repository holding your models. Mount your checkout here.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_DATA_DIR</code></td>
+            <td><code>.strata-data</code></td>
+            <td>Accounts, the session signing secret, encrypted credentials, the delivery log and
+            the audit log. <strong>Persist this.</strong></td>
+          </tr>
+          <tr>
+            <td><code>STRATA_MODEL_REPO</code></td>
+            <td>unset</td>
+            <td>Clone this repository on startup when the workspace is empty, meaning the one named
+            here rather than Strata's own. This is what makes a
+            Kubernetes or platform deploy possible, where there is no host folder to mount.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_MODEL_BRANCH</code></td>
+            <td>the repo default</td>
+            <td>Which branch to check out.</td>
+          </tr>
+          <tr>
+            <td><code>PORT</code></td>
+            <td><code>4000</code></td>
+            <td>The port to listen on.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="auth">Accounts and sign in</h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>STRATA_AUTH</code></td>
+            <td>on</td>
+            <td>Set to <code>off</code> to disable sign in entirely. Everyone then has every
+            permission.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_ADMIN_USERNAME</code></td>
+            <td>unset</td>
+            <td>Create this administrator at boot, if no account exists yet.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_ADMIN_PASSWORD_HASH</code></td>
+            <td>unset</td>
+            <td>The scrypt hash of that account's password. Generate one with the
+            <code>hash-password</code> script. Preferred.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_ADMIN_PASSWORD</code></td>
+            <td>unset</td>
+            <td>A plain password instead of a hash. Easier to try, worse to store.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_COOKIE_SECURE</code></td>
+            <td><code>false</code></td>
+            <td>Send the session cookie with the Secure flag. Set to <code>true</code> whenever
+            you serve over HTTPS.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="warn">
+      <b>The most common confusing failure</b>
+      <p>
+        <code>STRATA_COOKIE_SECURE=true</code> on plain HTTP means the browser drops the cookie without
+        any error. Sign in appears to work and you stay signed out. Leave it
+        <code>false</code> for local work, <code>true</code> behind real TLS.
+      </p>
+    </div>
+
+    <h3>Why seeding the admin matters</h3>
+    <p>
+      First run setup is open until an account exists. It reopens whenever the data directory is
+      empty, which happens if you forget the volume, or set
+      <code>persistence.enabled: false</code> in the Helm chart. Seeding the administrator closes
+      that window completely, because the account is created before the server starts listening.
+    </p>
+    <p>
+      Seeding only happens when there are no accounts at all, so leaving these variables in place
+      is safe and does nothing on later restarts.
+    </p>
+
+    <h2 id="network">Network and browser security</h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>STRATA_TRUST_PROXY</code></td>
+            <td><code>false</code></td>
+            <td>Believe the <code>X-Forwarded-For</code> header. Set to <code>true</code> when
+            something sits in front of strata.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_ALLOWED_ORIGINS</code></td>
+            <td>empty</td>
+            <td>Comma separated origins allowed to call the API cross-site. Empty means
+            same-origin only, which is right for almost every deployment.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_CSP_CONNECT_SRC</code></td>
+            <td>empty</td>
+            <td>Extra values for the content security policy's <code>connect-src</code>. Only
+            needed when the API is on a different origin from the UI.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_SSRF_ALLOW</code></td>
+            <td>empty</td>
+            <td>Comma separated hosts that are allowed to resolve to a private or link-local
+            address.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Why outbound requests are restricted</h3>
+    <p>
+      Several URLs come from a form: the webhook target, and the Confluence and Jira site URLs.
+      Strata refuses to send a request to loopback, link-local or private address ranges, because on a
+      cloud instance the interesting target is the metadata endpoint at
+      <code>169.254.169.254</code>, which hands out the machine's own credentials to anything that
+      can reach it.
+    </p>
+    <p>If your Jira really is on an internal address, allow it explicitly:</p>
+    <pre><code>STRATA_SSRF_ALLOW=jira.internal,confluence.internal</code></pre>
+    <p>
+      Redirects are followed by hand and every hop is checked, so an allowed host cannot bounce the
+      request somewhere the check would have refused.
+    </p>
+
+    <h3>Why the proxy setting affects security</h3>
+    <p>
+      <code>STRATA_TRUST_PROXY</code> decides what the sign in throttle counts against. Leave it off
+      behind a proxy and every visitor shares one counter, so one person guessing passwords locks
+      out everybody. Turn it on with no proxy in front and a client can claim any address it likes,
+      which defeats the throttle. Set it to match reality.
+    </p>
+
+    <h2 id="features">Turning features off for a deployment</h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>STRATA_FEATURES</code></td>
+            <td>unset, meaning everything on</td>
+            <td>A comma separated list of features this deployment permits at all. Valid values:
+            <code>integrations</code>, <code>skills</code>, <code>bigquery</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Three states, and the difference between the last two matters:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Value</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Not set at all</td><td>Everything is on. This is the normal self-hosted behaviour.</td></tr>
+          <tr><td><code>STRATA_FEATURES=skills</code></td><td>Only agent skills. Integrations and BigQuery routes return 404.</td></tr>
+          <tr><td><code>STRATA_FEATURES=""</code></td><td><strong>Nothing is on.</strong> An empty list means an empty list.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <b>This is a deployment decision, not a setting</b>
+      <p>
+        An admin toggle is a preference inside one instance. This is the operator of the host
+        saying a capability is not available here at all. Nothing inside the app can turn it back
+        on, which is exactly what you want for a public trial where every visitor is effectively an
+        administrator.
+      </p>
+    </div>
+
+    <p>
+      A route for a disabled feature returns 404, not 403. A feature that is off for the deployment
+      does not exist here for anyone, and saying so is both more honest and less interesting to
+      somebody poking around.
+    </p>
+
+    <h2 id="tenants">One workspace per visitor</h2>
+
+    <p>
+      For a hosted trial. Off unless <code>STRATA_TENANT_DIR</code> is set, and that default matters:
+      a self-hosted instance keeps serving the one workspace its operator mounted.
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>STRATA_TENANT_DIR</code></td>
+            <td>unset</td>
+            <td>Turn on multi-tenant mode. Each visitor gets a directory under this path.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_TENANT_SEED</code></td>
+            <td>unset</td>
+            <td>Copy this workspace into every new visitor's directory, so they land on something
+            rather than an empty canvas.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_TENANT_TTL_MS</code></td>
+            <td>7 days</td>
+            <td>Delete a workspace after this long with no writes. Set <code>0</code> to never
+            expire.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Visitors are identified by a signed cookie. The identifier is generated by the server and
+      signed, never accepted from the client, so nobody can claim somebody else's workspace by
+      editing a cookie.
+    </p>
+
+    <p>
+      Stored credentials, the delivery log, presence and the audit log are all kept per tenant too,
+      not just the model files.
+    </p>
+
+    <div class="warn">
+      <b>Turn off outbound features in multi-tenant mode</b>
+      <p>
+        If visitors are anonymous, every one of them is effectively an administrator inside their
+        own workspace. Set <code>STRATA_FEATURES=""</code> so none of them can make your server send a
+        request. Strata prints a warning at startup if you do not.
+      </p>
+    </div>
+
+    <h2 id="creds">Credentials</h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Variable</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>GITHUB_TOKEN</code></td>
+            <td>Opens pull requests. Without it you still get branch, commit, push and a compare
+            link.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_GITHUB_TOKEN_FILE</code></td>
+            <td>Path to a mounted file holding the token. Preferred in production: the value never
+            appears in <code>docker inspect</code> or <code>kubectl describe pod</code>, and it
+            rotates without a restart.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_SKILLS_API_KEY</code></td>
+            <td>Model provider key for agent skills. Without it, agent skills report themselves as
+            skipped rather than quietly passing.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_SKILLS_MODEL</code></td>
+            <td>Which model agent skills use. Defaults to a current Claude model.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_GCP_ACCESS_TOKEN</code></td>
+            <td>A short lived Google token. Good for trying the policy tag sync, not for running
+            it, because it expires in about an hour.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_GCP_CATALOG_BASE</code></td>
+            <td>Override the Data Catalog endpoint, for VPC Service Controls or a private
+            endpoint.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_SECRET_*</code></td>
+            <td>Override any stored credential from the environment.</td>
+          </tr>
+          <tr>
+            <td><code>GIT_AUTHOR_NAME</code>, <code>GIT_AUTHOR_EMAIL</code></td>
+            <td>Fallback commit attribution. A signed in user's own name is used when
+            available.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Credentials entered in the UI are encrypted with AES-GCM and stored in the data directory,
+      never in the model repository, and never returned to the browser. You get the last four
+      characters so you can tell which credential is in place, and nothing more.
+    </p>
+
+    <h2 id="logs">Logging</h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>STRATA_LOG_REQUESTS</code></td>
+            <td><code>false</code></td>
+            <td>Log a line for every request. Failures are always logged regardless.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_DEBUG</code></td>
+            <td><code>false</code></td>
+            <td>Print stack traces in CLI output instead of just the message.</td>
+          </tr>
+          <tr>
+            <td><code>STRATA_VERSION</code>, <code>STRATA_COMMIT</code></td>
+            <td>unset</td>
+            <td>Reported by <code>/api/health/detail</code>, so a post-deploy check can prove which
+            build is live.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Logs are one JSON object per line on stdout, which is what every container platform collects.
+      Every response carries an <code>x-request-id</code> header, and an unexpected error shows that
+      id to the user. When somebody reports a failure, that id finds the exact log line.
+    </p>
+
+    <p>
+      Values under keys that look like secrets, such as anything containing "password", "token" or
+      "key", are replaced with <code>[redacted]</code> before a line is written.
+    </p>
+
+    <h2 id="watch">Merge detection</h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>STRATA_WATCH_INTERVAL_MS</code></td>
+            <td><code>60000</code></td>
+            <td>How often the default branch is polled for merges. Set <code>0</code> to switch it
+            off.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Worth turning off on a shared instance behind a rate limited enterprise remote. With polling
+      off, integrations still fire on proposals and failed validation. Only the merge event stops.
+    </p>
+
+    <h2 id="config">What lives in the config file instead</h2>
+
+    <p>
+      Modelling decisions do not belong in environment variables. Lint rules, naming standards,
+      file layout, DDL output and integration settings all live in <code>strata.config.yaml</code>
+      inside your model repository.
+    </p>
+
+    <p>
+      That is deliberate. Those are decisions made by data architects and reviewed as pull requests
+      alongside the models they govern. Editing them in the UI writes that file and shows up in
+      Changes, so it still lands as a reviewable commit rather than a live mutation nobody can
+      audit.
+    </p>
+
+    <p>
+      Integration credentials are the exception. Non-secret settings, such as which Confluence space
+      to publish to, go in the config file where they are reviewable. The token goes in the
+      encrypted store, because committing it would be exactly the mistake this whole design exists
+      to avoid.
+    </p>
+
+    <div class="nextprev">
+      <a href="deploy-cloud.html">
+        <small>Previous</small>
+        <strong>Hosting options</strong>
+      </a>
+      <a href="security.html">
+        <small>Next</small>
+        <strong>Security</strong>
+      </a>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

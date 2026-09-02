@@ -1,0 +1,42 @@
+# Overlay for a local kind cluster.
+#
+#   docker build -t strata:0.1.0 .
+#   kind load docker-image strata:0.1.0 --name <your-cluster>
+#   helm install strata deploy/helm/strata -f deploy/helm/strata/values-kind.yaml \
+#     --set model.repo=https://github.com/rk-chavali/strata-example.git
+#   kubectl port-forward svc/strata 8080:80
+#
+# Everything here differs from the production defaults for a reason that only applies
+# locally. Do not copy this file into a real deployment.
+
+image:
+  repository: strata
+  tag: "0.1.0"
+  # kind has no registry. The image is side-loaded with `kind load docker-image`, so the
+  # kubelet must be told to use what is already there rather than trying to pull it.
+  pullPolicy: IfNotPresent
+
+auth:
+  enabled: true
+  # False because `kubectl port-forward` is plain HTTP, and a browser silently drops a
+  # Secure cookie over HTTP, sign-in would appear to work and leave you signed out.
+  cookieSecure: false
+
+persistence:
+  enabled: true
+  size: 1Gi
+  # kind's default StorageClass. Named explicitly so a failure is "no such class" rather
+  # than a PVC that sits Pending forever with no obvious cause.
+  storageClass: standard
+
+# Small enough to schedule on a laptop control-plane node alongside everything else.
+resources:
+  requests:
+    cpu: 50m
+    memory: 192Mi
+  limits:
+    memory: 768Mi
+
+service:
+  type: ClusterIP
+  port: 80

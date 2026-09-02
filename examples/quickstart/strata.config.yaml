@@ -1,0 +1,20 @@
+version: 1
+name: quickstart
+description: |-
+  A tiny shop, modelled across all three tiers.
+
+  Small on purpose. It exists so that a fresh clone opens on something real rather than an
+  empty canvas, and so `strata check` has something to check in CI. Two concepts become two
+  entities become two BigQuery tables, with the mappings that link them.
+
+# Discovery reads meaning from file contents, never from paths, so this can stay broad.
+# Try `strata reorganize --preset by-layer --dry-run`: every file moves, nothing changes.
+roots:
+  - "."
+
+layout:
+  preset: by-model-and-kind
+  slugStyle: snake
+
+lint:
+  strict: false

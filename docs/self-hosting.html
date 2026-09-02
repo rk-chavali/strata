@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Self-hosting Strata with Docker or Kubernetes</title>
+<meta name="description" content="Run Strata for a team. Covers Docker Compose, the Helm chart, seeding the administrator, accounts and roles, backups and upgrades.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/self-hosting.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="Self-hosting Strata with Docker or Kubernetes">
+<meta property="og:description" content="Run Strata for a team. Covers Docker Compose, the Helm chart, seeding the administrator, accounts and roles, backups and upgrades.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/self-hosting.html">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata <span>docs</span></a>
+  <nav>
+    <a href="quickstart.html">Get started</a>
+    <a href="cloud.html">Cloud</a>
+    <a href="self-hosting.html">Self-hosting</a>
+    <a href="configuration.html">Config</a>
+    <a href="security.html">Security</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <h3>Start here</h3>
+    <a href="docs.html">Introduction</a>
+    <a href="quickstart.html">Get started</a>
+    <a href="concepts.html">How the model works</a>
+
+    <h3>Strata Cloud</h3>
+    <a href="cloud.html">Using Cloud</a>
+
+    <h3>Self-hosting</h3>
+    <a href="self-hosting.html" aria-current="page">Run it yourself</a>
+    <a href="deploy-cloud.html">Hosting options</a>
+    <a href="configuration.html">Configuration reference</a>
+
+    <h3>Operating it</h3>
+    <a href="security.html">Security</a>
+    <a href="cli.html">CLI reference</a>
+
+    <h3>On this page</h3>
+    <a href="#whether">Whether you need this</a>
+    <a href="#recommended">The recommended way</a>
+    <a href="#packages">Where the packages are</a>
+    <a href="#stores">What it stores</a>
+    <a href="#shape">The shape of a deployment</a>
+    <a href="#compose">Walkthrough: Docker Compose</a>
+    <a href="#admin">Seeding the administrator</a>
+    <a href="#github">Connecting GitHub</a>
+    <a href="#roles">People and roles</a>
+    <a href="#k8s">Walkthrough: Kubernetes</a>
+    <a href="#proxy">Behind a proxy</a>
+    <a href="#backup">Backups</a>
+    <a href="#upgrade">Upgrading</a>
+    <a href="#scale">Why only one replica</a>
+  </aside>
+
+  <main>
+    <p class="eyebrow">Self-hosting</p>
+    <h1>Running Strata yourself</h1>
+    <p class="lede">
+      Everything runs in your infrastructure. Strata talks to exactly two things outside itself,
+      both optional and both yours: your GitHub, so it can raise pull requests, and your own model
+      provider, if you turn on agent skills. It never phones home.
+    </p>
+
+    <h2 id="whether">Whether you need this</h2>
+
+    <p>
+      Most teams do not. <a href="cloud.html">Strata Cloud</a> is the same software with nothing to
+      install, and your models live in your own GitHub repository either way.
+    </p>
+
+    <p>Self-hosting is the right choice when one of these is true:</p>
+
+    <ul>
+      <li>Your repositories are on an internal <b>GitHub Enterprise Server</b> that a hosted
+      instance cannot reach.</li>
+      <li>Your <b>BigQuery project</b> is only reachable from inside your network.</li>
+      <li>A review requires that the <b>working copy never leaves</b> your infrastructure.</li>
+      <li>You want <b>local accounts</b> rather than GitHub as the identity provider.</li>
+    </ul>
+
+    <p>
+      If none of those apply, start with Cloud and come back here if that changes. Moving either
+      direction is just pointing a different instance at the same repository.
+    </p>
+
+    <h3>What you take on</h3>
+
+    <p>Running it yourself means you are responsible for:</p>
+
+    <ul>
+      <li>Provisioning and maintaining the server, and keeping the image up to date</li>
+      <li>TLS, and whatever sits in front of it</li>
+      <li>Backing up the data directory, which holds accounts and the session secret</li>
+      <li>Availability, and restoring it when something breaks</li>
+    </ul>
+
+    <p>
+      None of that is heavy. The container is stateless, the model is files in git, and the data
+      directory is small enough to back up with <code>tar</code>. But it is real work, and it is
+      worth knowing before you start rather than after.
+    </p>
+
+    <h2 id="recommended">The recommended way</h2>
+
+    <p>
+      <b>Docker Compose.</b> One file, one command, no build. It is what the walkthrough below
+      uses and what most teams should pick. Kubernetes is covered too, for teams that already run
+      one, and <a href="deploy-cloud.html">hosting options</a> compares the platforms you might
+      rent a machine from.
+    </p>
+
+    <h2 id="packages">Where the packages are</h2>
+
+    <p>
+      Two published artefacts, both public. Neither needs a login, an account or a clone.
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>What</th><th>Pull it with</th><th>Every version</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Container image</td>
+            <td><code>docker pull ghcr.io/rk-chavali/strata:latest</code></td>
+            <td><a href="https://github.com/users/rk-chavali/packages/container/package/strata">Package page</a></td>
+          </tr>
+          <tr>
+            <td>Helm chart</td>
+            <td><code>helm pull oci://ghcr.io/rk-chavali/charts/strata</code></td>
+            <td><a href="https://github.com/users/rk-chavali/packages/container/package/charts%2Fstrata">Package page</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      The image is built for <code>linux/amd64</code> and <code>linux/arm64</code>, so it runs on
+      an Apple Silicon laptop and on the ARM instances that most free cloud tiers offer.
+    </p>
+
+    <h3>Which tag to use</h3>
+
+    <p>
+      <code>latest</code> is the newest release, and it is what the examples here use. Every tag
+      that has ever been published is listed on the package page above, which is also where you
+      can see when each was pushed.
+    </p>
+
+    <div class="note">
+      <b>Pin a version for production</b>
+      <p>
+        <code>latest</code> moves across major versions, so a routine
+        <code>docker compose pull</code> can bring a breaking change on a Tuesday morning. Naming
+        a version instead means upgrades happen when you decide:
+      </p>
+      <pre><code>image: ghcr.io/rk-chavali/strata:0.1.0</code></pre>
+      <p>
+        Helm takes the newest chart when no <code>--version</code> is given, and
+        <code>--version 0.1.0</code> pins it the same way.
+      </p>
+    </div>
+
+    <h2 id="stores">What it stores, and where</h2>
+
+    <p>
+      This is the first question every security review asks, so it is the first thing here.
+    </p>
+
+    <p><strong>There is no database.</strong> The model is files in your git repository.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>What</th><th>Where it lives</th><th>In your repo?</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Models, all three tiers</td><td>YAML files</td><td>Yes</td></tr>
+          <tr><td>Diagrams, layout, shapes</td><td>Separate YAML files</td><td>Yes</td></tr>
+          <tr><td>Settings, lint rules, conventions</td><td><code>strata.config.yaml</code></td><td>Yes</td></tr>
+          <tr><td>Generated DDL and <code>CODEOWNERS</code></td><td><code>DDL/</code>, <code>CODEOWNERS</code></td><td>Yes</td></tr>
+          <tr><td>Accounts and password hashes</td><td><code>STRATA_DATA_DIR</code></td><td><strong>No</strong></td></tr>
+          <tr><td>Session signing secret</td><td><code>STRATA_DATA_DIR</code></td><td><strong>No</strong></td></tr>
+          <tr><td>Encrypted credentials</td><td><code>STRATA_DATA_DIR</code></td><td><strong>No</strong></td></tr>
+          <tr><td>Delivery log and audit log</td><td><code>STRATA_DATA_DIR</code></td><td><strong>No</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      So there are exactly two places with state, and both live outside the container image.
+      <code>/workspace</code> is your model repository, a real git checkout. <code>/data</code> is
+      everything that must never be committed to it.
+    </p>
+
+    <div class="warn">
+      <b>Persist /data</b>
+      <p>
+        If you lose it you lose accounts, stored credentials and the audit log, and everyone is
+        signed out. You do not lose any models, because those are in git.
+      </p>
+    </div>
+
+    <h2 id="shape">The shape of a deployment</h2>
+
+    <p>Three ways to run it. Same image every time.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Path</th><th>Suits</th><th>Model repo comes from</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Docker Compose</td>
+            <td>A team, on a VM</td>
+            <td>A folder on the host, mounted in</td>
+          </tr>
+          <tr>
+            <td>Kubernetes, with the Helm chart</td>
+            <td>Enterprise</td>
+            <td>Cloned on startup from a URL you give it</td>
+          </tr>
+          <tr>
+            <td>Node directly</td>
+            <td>Development</td>
+            <td>Whatever path you point it at</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="compose">Walkthrough: Docker Compose</h2>
+
+    <p>The most common way to run Strata for a small team. Start to finish, about fifteen minutes.</p>
+
+    <ol class="steps">
+      <li>
+        <h3>Create the model repository</h3>
+        <p>
+          If you do not have one yet, make an empty repository on GitHub and clone it onto the
+          host. Strata will fill it in.
+        </p>
+        <pre><code>git clone git@github.com:your-org/data-models.git /srv/data-models</code></pre>
+      </li>
+
+      <li>
+        <h3>Save the compose file</h3>
+        <p>
+          Put this in an empty directory as <code>docker-compose.yml</code>. It is the whole
+          install: there is nothing to clone and nothing to build, because it pulls a published
+          image.
+        </p>
+        <p class="filename">docker-compose.yml</p>
+        <pre><code>services:
+  strata:
+    # `latest` is the newest release. Name a version instead for production,
+    # so an upgrade happens when you decide. See "Where the packages are".
+    image: ghcr.io/rk-chavali/strata:latest
+    ports:
+      - &quot;4000:4000&quot;
+    environment:
+      PORT: 4000
+      STRATA_WORKSPACE: /workspace
+      STRATA_DATA_DIR: /data
+      STRATA_ADMIN_USERNAME: ${STRATA_ADMIN_USERNAME:-}
+      STRATA_ADMIN_PASSWORD_HASH: ${STRATA_ADMIN_PASSWORD_HASH:-}
+      STRATA_COOKIE_SECURE: ${STRATA_COOKIE_SECURE:-false}
+      STRATA_TRUST_PROXY: ${STRATA_TRUST_PROXY:-false}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-strata}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-strata@localhost}
+      GIT_COMMITTER_NAME: ${GIT_AUTHOR_NAME:-strata}
+      GIT_COMMITTER_EMAIL: ${GIT_AUTHOR_EMAIL:-strata@localhost}
+    volumes:
+      # Your model repository, from the step above.
+      - ${STRATA_WORKSPACE_HOST:?set this in .env}:/workspace
+      # Accounts and the session secret. Not your models.
+      - strata-data:/data
+      # Only needed if your git remote uses SSH rather than HTTPS.
+      - ${SSH_DIR:-~/.ssh}:/home/strata/.ssh:ro
+    restart: unless-stopped
+volumes:
+  strata-data:</code></pre>
+      </li>
+
+      <li>
+        <h3>Generate a password hash for the administrator</h3>
+        <p>
+          Do this before the first start. It is what stops a stranger becoming your administrator
+          if the data volume is ever lost.
+        </p>
+        <pre><code>docker run --rm -it ghcr.io/rk-chavali/strata \
+  node apps/server/dist/hash-password.js</code></pre>
+        <p>
+          It asks for a password without echoing it, then prints a hash that looks like
+          <code>scrypt$a1b2...$c3d4...</code>. Copy that.
+        </p>
+        <p>
+          The hash is safe to keep in a file or a secret manager. It cannot be replayed anywhere
+          else, and it cannot be turned back into the password.
+        </p>
+      </li>
+
+      <li>
+        <h3>Write your settings</h3>
+        <p>Create a <code>.env</code> file in the same directory:</p>
+        <p class="filename">.env</p>
+        <pre><code># Where your models live on this host
+STRATA_WORKSPACE_HOST=/srv/data-models
+
+# The administrator, created at boot if no account exists
+STRATA_ADMIN_USERNAME=admin
+STRATA_ADMIN_PASSWORD_HASH=scrypt$a1b2...$c3d4...
+
+# Set both of these once you are behind HTTPS
+STRATA_COOKIE_SECURE=true
+STRATA_TRUST_PROXY=true
+
+# Opens pull requests. Without it you still get branch, commit, push and a compare link
+GITHUB_TOKEN=ghp_your_token_here</code></pre>
+        <div class="stop">
+          <b>Do not commit this file</b>
+          <p>
+            It holds a token and a password hash. Add <code>.env</code> to your
+            <code>.gitignore</code> before you write it, not after.
+          </p>
+        </div>
+      </li>
+
+      <li>
+        <h3>Start it</h3>
+        <pre><code>docker compose up -d</code></pre>
+        <p>Then check the logs:</p>
+        <pre><code>docker compose logs -f</code></pre>
+        <p>You are looking for two lines:</p>
+        <pre><code>seeded the administrator from configuration
+strata server listening on http://localhost:4000</code></pre>
+        <p>
+          If instead you see a warning that <code>/api/auth/setup</code> is open, the seed did not
+          take. Check the variable names and that the hash was copied whole.
+        </p>
+      </li>
+
+      <li>
+        <h3>Sign in</h3>
+        <p>
+          Open the address, sign in as the administrator you seeded, and change nothing yet. The
+          Overview page carries a setup checklist that ticks itself off as git, a remote, a token
+          and a first model appear. Work down it.
+        </p>
+      </li>
+
+      <li>
+        <h3>Add your team</h3>
+        <p>
+          Go to Settings, then Users. There are two ways, and they suit different situations.
+        </p>
+        <p>
+          <b>Send an invitation.</b> Pick a role, create the invitation, and copy the link. Send it
+          however your team already talks. The person opens it, chooses their own username and
+          password, and lands in the workspace signed in.
+        </p>
+        <p>
+          <b>Or create the account directly.</b> Faster if the person is sitting next to you, but
+          you choose their password, which means you know it and it usually reaches them over chat
+          in plain text. Prefer an invitation when it is not someone you can just tell.
+        </p>
+        <p>
+          See <a href="#roles">People and roles</a> for what each role can do.
+        </p>
+        <div class="note">
+          <b>Want invitations to email themselves?</b>
+          <p>
+            Optional, and off until configured. Set <code>smtp.host</code> and
+            <code>smtp.from</code> under Settings, Git and secrets, and an email field appears
+            beside the invitation form. See
+            <a href="configuration.html">configuration</a> for the full list.
+          </p>
+        </div>
+
+        <div class="note">
+          <b>No mail server needed</b>
+          <p>
+            Strata does not send email, and does not need to be configured to. The link is the
+            invitation. It is single use, expires after seven days, and can be revoked from the
+            same screen before it is used. The invitation code travels in the link's fragment, so
+            it never reaches a web server log or a proxy along the way.
+          </p>
+        </div>
+      </li>
+
+      <li>
+        <h3>Turn on the CI gate</h3>
+        <p>
+          Add <code>strata check</code> to your model repository's pipeline and require it in branch
+          protection. The <a href="quickstart.html#gate">quickstart</a> has the workflow file.
+        </p>
+        <p>
+          This is the step that makes the governance real, and the one most likely to be skipped.
+          Strata can refuse to open a proposal, but nothing stops a direct push to <code>main</code>
+          unless the repository requires review.
+        </p>
+      </li>
+    </ol>
+
+    <h2 id="admin">Seeding the administrator</h2>
+
+    <p>
+      Strata has no default password. Somebody has to create the first account, and until they do,
+      <code>/api/auth/setup</code> is open to whoever gets there first.
+    </p>
+
+    <p>
+      On a laptop that is fine. On anything reachable from a network you do not control it is not,
+      for a reason that is easy to miss: <strong>the route reopens whenever the data directory is
+      empty.</strong> Forget the volume in <code>docker run</code>, or set
+      <code>persistence.enabled: false</code> in the Helm chart, and every restart hands the next
+      visitor an administrator account.
+    </p>
+
+    <p>Set these two and there is no window at all, because the account exists before the server starts listening:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Variable</th><th>What it is</th></tr></thead>
+        <tbody>
+          <tr><td><code>STRATA_ADMIN_USERNAME</code></td><td>The username to create.</td></tr>
+          <tr><td><code>STRATA_ADMIN_PASSWORD_HASH</code></td><td>A hash from <code>hash-password</code>. Preferred, because it is safe to store anywhere.</td></tr>
+          <tr><td><code>STRATA_ADMIN_PASSWORD</code></td><td>A plain password instead. Easier to try, worse to store.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <b>Safe to leave in place</b>
+      <p>
+        Seeding only happens when there are no accounts at all. Leaving these variables set after
+        the first boot does nothing, so a password you later change in the UI is never quietly put
+        back. If the hash is malformed, Strata refuses to start rather than booting without an admin.
+      </p>
+    </div>
+
+    <h2 id="github">Connecting GitHub</h2>
+
+    <p>
+      A token lets Strata open pull requests for you. Without one it still creates the branch, commits
+      and pushes, then hands you a link to open the pull request yourself.
+    </p>
+
+    <p>Three ways to supply it, best first:</p>
+
+    <ol>
+      <li>
+        <strong>A mounted file.</strong> Set <code>STRATA_GITHUB_TOKEN_FILE</code> to a path. This is
+        how Vault, Google Secret Manager and Kubernetes secrets all present themselves, so one
+        mechanism covers all of them. The token never touches Strata's own disk, and it rotates
+        without a restart.
+      </li>
+      <li>
+        <strong>An environment variable.</strong> <code>GITHUB_TOKEN</code>. Fine for a small
+        deployment. Be aware that environment variables show up in
+        <code>docker inspect</code> and <code>kubectl describe pod</code>.
+      </li>
+      <li>
+        <strong>Pasted into Settings.</strong> Stored encrypted in <code>STRATA_DATA_DIR</code>. Good
+        for a team without a secret manager.
+      </li>
+    </ol>
+
+    <p>The token needs <code>repo</code> scope. Nothing more.</p>
+
+    <h2 id="roles">People and roles</h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Role</th><th>Can</th></tr></thead>
+        <tbody>
+          <tr><td><code>viewer</code></td><td>Read models, diagrams, the dictionary and lineage. Change nothing.</td></tr>
+          <tr><td><code>editor</code></td><td>All of the above, plus edit models and open pull requests.</td></tr>
+          <tr><td><code>admin</code></td><td>All of the above, plus settings, file layout, integrations, accounts and the audit log.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Roles are checked on the server for every request. The UI hides what your role cannot do,
+      because a hidden button explains better than a refusal, but the server is what actually
+      enforces it.
+    </p>
+
+    <p>
+      The last administrator cannot be demoted, disabled or deleted, so there is no way to lock
+      yourself out.
+    </p>
+
+    <h3>Who can approve a change is a separate question</h3>
+    <p>
+      Worth separating two things that get confused. <strong>Who can use Strata</strong> is the role
+      above. <strong>Who can approve a model change</strong> is not Strata's job, deliberately. That
+      is <code>CODEOWNERS</code> plus branch protection in your own GitHub.
+    </p>
+    <p>
+      Strata generates the <code>CODEOWNERS</code> file from model ownership, and your existing review
+      process enforces it. An editor in Strata can propose anything. What actually lands in
+      <code>main</code> is governed by the same rules as the rest of your code.
+    </p>
+
+    <h3>What about single sign on</h3>
+    <p>
+      There is none yet. Two options today, and both have a real cost:
+    </p>
+    <ul>
+      <li>
+        <strong>Local accounts.</strong> Works now. An admin creates each person. Fine for a team
+        of five to twenty. Painful past that, and removing somebody is manual.
+      </li>
+      <li>
+        <strong><code>STRATA_AUTH=off</code> behind an authenticating proxy.</strong> Your existing SSO
+        does the authentication and Strata trusts the network. This is a real pattern, but Strata then
+        has no idea who anyone is, so everybody is effectively an editor and commits are not
+        attributed to individuals. That is a genuine loss, not just a preference.
+      </li>
+    </ul>
+
+    <h2 id="k8s">Walkthrough: Kubernetes</h2>
+
+    <p>
+      The chart is published to the same registry as the image, so there is nothing to clone. On
+      Kubernetes there is no host folder to mount, so the container clones your model repository
+      on startup instead.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <h3>Create the secrets</h3>
+        <pre><code>kubectl create secret generic strata-github \
+  --from-literal=token=ghp_your_token_here
+
+kubectl create secret generic strata-admin \
+  --from-literal=username=admin \
+  --from-literal=passwordHash='scrypt$a1b2...$c3d4...'</code></pre>
+      </li>
+
+      <li>
+        <h3>Write your values</h3>
+        <p class="filename">my-values.yaml</p>
+        <pre><code>model:
+  repo: https://github.com/your-org/data-models.git
+  branch: main
+
+auth:
+  enabled: true
+  # Essential once you have an ingress. A Secure cookie over plain HTTP is
+  # silently dropped by the browser, which looks like sign in not working.
+  cookieSecure: true
+
+github:
+  existingSecret: strata-github
+  existingSecretKey: token
+
+# Holds accounts, the session secret, the encrypted token, the audit log,
+# and the model checkout. Losing it signs everyone out.
+persistence:
+  enabled: true
+  size: 5Gi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: strata.your-company.com
+  tls:
+    enabled: true
+    secretName: strata-tls
+
+extraEnv:
+  - name: STRATA_ADMIN_USERNAME
+    valueFrom:
+      secretKeyRef: { name: strata-admin, key: username }
+  - name: STRATA_ADMIN_PASSWORD_HASH
+    valueFrom:
+      secretKeyRef: { name: strata-admin, key: passwordHash }
+  - name: STRATA_TRUST_PROXY
+    value: "true"</code></pre>
+      </li>
+
+      <li>
+        <h3>Install</h3>
+        <pre><code>helm install strata oci://ghcr.io/rk-chavali/charts/strata -f my-values.yaml</code></pre>
+        <p>
+          Helm speaks OCI natively, so there is no repository to add first.
+        </p>
+      </li>
+
+      <li>
+        <h3>Check it came up</h3>
+        <pre><code>kubectl logs -l app.kubernetes.io/name=strata --tail=50</code></pre>
+        <p>
+          Look for the clone succeeding and the administrator being seeded. If the clone fails, Strata
+          still starts and shows the error in the UI, because a container that exits becomes a
+          crash loop and a crash loop gives you nowhere to read the error.
+        </p>
+      </li>
+    </ol>
+
+    <div class="warn">
+      <b>Do not set persistence.enabled to false</b>
+      <p>
+        It mounts an <code>emptyDir</code>, so <code>/data</code> is wiped on every restart. That
+        signs everyone out, loses every stored credential and the whole audit log, and reopens
+        first run setup unless you have seeded the administrator. It is there for a five minute
+        smoke test and nothing else.
+      </p>
+    </div>
+
+    <h2 id="proxy">Behind a proxy</h2>
+
+    <p>Two settings matter, and both cause confusing symptoms if you get them wrong.</p>
+
+    <h3>Secure cookies</h3>
+    <p>
+      Set <code>STRATA_COOKIE_SECURE=true</code> whenever you serve over HTTPS. If you set it while
+      still on plain HTTP, the browser drops the cookie without any error, and sign in appears to
+      work while you stay signed out.
+    </p>
+
+    <h3>Trusting the forwarded address</h3>
+    <p>
+      Set <code>STRATA_TRUST_PROXY=true</code> when something sits in front of strata. This affects the
+      sign in throttle. Leave it off behind a proxy and every visitor shares one counter, so one
+      person guessing passwords locks out your whole company. Turn it on with no proxy in front and
+      a client can claim any address it likes, which defeats the throttle entirely.
+    </p>
+
+    <h3>Do not buffer the event stream</h3>
+    <p>
+      The UI holds a long lived connection open for presence and live updates. A proxy that buffers
+      responses holds those events until the buffer fills, which looks exactly like the feature
+      silently not working.
+    </p>
+
+    <p>For nginx:</p>
+    <pre><code>proxy_buffering off;
+proxy_read_timeout 3600;</code></pre>
+    <p>The Helm chart already sets the matching ingress annotations.</p>
+
+    <h2 id="backup">Backups</h2>
+
+    <p>Two things, and they need different treatment.</p>
+
+    <h3>The models</h3>
+    <p>
+      Already backed up, because they are in git and pushed to your remote. Nothing to do. This is
+      the main reason the whole tool is built this way.
+    </p>
+
+    <h3>The data directory</h3>
+    <p>
+      Back this up. It is small, usually well under a megabyte, and it holds the things that cannot
+      be recreated: password hashes, the session signing secret, encrypted credentials and the
+      audit log.
+    </p>
+
+    <pre><code># Docker Compose
+docker compose exec strata tar czf - /data > strata-data-$(date +%F).tgz
+
+# Kubernetes
+kubectl exec deploy/strata -- tar czf - /data > strata-data-$(date +%F).tgz</code></pre>
+
+    <p>
+      A nightly copy is plenty. Losing a day of it costs you a day of audit log, and nothing else.
+    </p>
+
+    <h3>Or export a workspace</h3>
+    <p>
+      Any viewer can download the whole workspace as a <code>.tgz</code> from the UI, or directly:
+    </p>
+    <pre><code>curl -b "strata_session=..." https://strata.your-company.com/api/workspace/export -o models.tgz</code></pre>
+    <p>
+      This is most useful for a workspace that is not a git repository yet, where there is no
+      remote holding a copy.
+    </p>
+
+    <h2 id="upgrade">Upgrading</h2>
+
+    <ol class="steps">
+      <li>
+        <h3>Read what changed</h3>
+        <p>Check the release notes for the version you are moving to.</p>
+      </li>
+      <li>
+        <h3>Back up the data directory</h3>
+        <p>See above. This is the one thing you cannot recreate.</p>
+      </li>
+      <li>
+        <h3>Pull and restart</h3>
+        <pre><code>docker compose pull
+docker compose up -d</code></pre>
+        <p>Or on Kubernetes:</p>
+        <pre><code>helm upgrade strata oci://ghcr.io/rk-chavali/charts/strata -f my-values.yaml</code></pre>
+      </li>
+      <li>
+        <h3>Check it is healthy</h3>
+        <pre><code>curl -s https://strata.your-company.com/api/health</code></pre>
+        <p>
+          That returns <code>{"ok":true}</code> and nothing else, on purpose. For real numbers,
+          sign in as an administrator and call <code>/api/health/detail</code>, which reports the
+          build, the model count, git state and which features are enabled.
+        </p>
+      </li>
+    </ol>
+
+    <p>
+      Model files are forward compatible. An older Strata reading a newer model file will report
+      fields it does not understand rather than losing them.
+    </p>
+
+    <h2 id="scale">Why only one replica</h2>
+
+    <p>
+      Strata runs as a single instance and there is no setting to change that. This is a correctness
+      constraint, not a tuning choice.
+    </p>
+
+    <p>
+      The workspace is a git working tree on a volume. Two containers writing to one working tree
+      corrupt it: one is halfway through a commit while the other is checking out a branch. There
+      is no locking that fixes this, because git itself assumes one writer.
+    </p>
+
+    <p>
+      The Kubernetes deployment strategy is <code>Recreate</code> for the same reason. A rolling
+      update would run two pods against that volume during every upgrade.
+    </p>
+
+    <p>
+      In practice this is rarely a limit. Strata reads YAML files and runs git commands. A team of
+      fifty modelling all day does not trouble one small container.
+    </p>
+
+    <div class="nextprev">
+      <a href="quickstart.html">
+        <small>Previous</small>
+        <strong>Get started</strong>
+      </a>
+      <a href="deploy-cloud.html">
+        <small>Next</small>
+        <strong>Hosting options</strong>
+      </a>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

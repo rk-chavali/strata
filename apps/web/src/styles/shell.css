@@ -1,0 +1,1801 @@
+/*
+ * The application shell.
+ *
+ * Three regions and nothing else: a top bar, a sidebar, a content area, plus a status
+ * bar spanning the foot. The thing this replaces had a top bar, an icon rail, a sliding
+ * panel, *and* five surfaces floating over the canvas (shape palette, next-step bar,
+ * status chips, selection toolbar, format toolbar), each with its own z-index and its own
+ * idea of where the edges of the canvas were. They overlapped, they clipped each other,
+ * and nothing on screen told you which one owned the space.
+ *
+ * The rule now: **every persistent surface has a fixed home in the grid.** Only things
+ * genuinely attached to a selection float, and they position against the selection rather
+ * than against the viewport.
+ */
+
+.shell {
+  display: grid;
+  grid-template-rows: var(--topbar-h) 1fr var(--statusbar-h);
+  grid-template-columns: auto 1fr;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.shell__top {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.shell__nav {
+  grid-row: 2;
+  grid-column: 1;
+  min-height: 0;
+}
+
+.shell__main {
+  grid-row: 2;
+  grid-column: 2;
+  min-width: 0;
+  min-height: 0;
+}
+
+.shell__status {
+  grid-row: 3;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- top bar */
+
+.topbar {
+  display: flex;
+  gap: var(--s5);
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+  padding: 0 var(--s5);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+
+/*
+ * No `overflow: hidden` here, however tempting.
+ *
+ * It stops content spilling at narrow widths, but it also clips every dropdown that hangs
+ * below the bar, the workspace picker, the account menu. They would open and render
+ * nothing, which reads as broken menus rather than a too-small container. Overflow is
+ * handled where it belongs: shrinkable children get `min-width: 0` and truncate.
+ */
+.topbar > * {
+  flex: none;
+}
+
+.brand {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  height: 30px;
+  padding: 0 var(--s3);
+  color: var(--text-1);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--track-tight);
+  border-radius: var(--r);
+}
+
+.brand:hover {
+  background: var(--bg-hover);
+}
+
+.brand__mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: var(--accent-on);
+  background: var(--accent);
+  border-radius: var(--r-sm);
+}
+
+/* The workspace label. A picker only when there is a choice to make. */
+.wslabel {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  min-width: 0;
+  max-width: 260px;
+  height: 30px;
+  padding: 0 var(--s4);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  border-radius: var(--r);
+}
+
+.wslabel__name {
+  font-weight: var(--fw-medium);
+}
+
+/*
+ * The command trigger.
+ *
+ * Centred and wide, the way an address bar is: this is the primary way to get anywhere in
+ * the app, and it should look like the main event rather than like a filter tucked into a
+ * corner. Replaces both the old search field and the search rail item.
+ */
+.omni {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--s4);
+  align-items: center;
+  min-width: 0;
+  max-width: 420px;
+  height: 30px;
+  margin: 0 auto;
+  padding: 0 var(--s4);
+  color: var(--text-4);
+  font-size: var(--fs-sm);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.omni:hover {
+  color: var(--text-3);
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
+}
+
+.omni__text {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--accent-on);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  background: var(--accent);
+  border-radius: var(--r-full);
+}
+
+.avatar:hover {
+  background: var(--accent-hover);
+}
+
+/* ---------------------------------------------------------------- presence */
+
+.peers {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.peers__stack {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--s2);
+  border-radius: var(--r-full);
+}
+
+.peers__stack:hover {
+  background: var(--bg-hover);
+}
+
+/* Overlapped, so a crowd reads as a stack rather than as a row that pushes the bar wide. */
+.peers__dot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: -6px;
+  color: #fff;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  border: 2px solid var(--bg-surface);
+  border-radius: var(--r-full);
+}
+
+.peers__dot:first-child {
+  margin-left: 0;
+}
+
+.peers__dot--more {
+  color: var(--text-3);
+  background: var(--bg-active);
+}
+
+/* A ring on someone looking at the same model you are, the only peer state worth calling out. */
+.peers__dot--here {
+  box-shadow: 0 0 0 2px var(--ok);
+}
+
+/* Dimmed while the event stream is retrying, so a stale list does not read as current. */
+.peers__stack--stale {
+  opacity: 0.5;
+}
+
+.peers__row {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  padding: var(--s3) var(--s4);
+  font-size: var(--fs-sm);
+}
+
+/* ---------------------------------------------------------------- sidebar */
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  width: var(--sidebar-w);
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+}
+
+/*
+ * Collapsed: icons only, 48px instead of 248.
+ *
+ * This rule and its token existed from the start and nothing ever applied the class. It
+ * earns its place now that the Repository view has its own file tree, two trees side by
+ * side is one navigation too many, so switching views collapses this one and switching
+ * back restores it.
+ *
+ * Icons stay because they keep the destinations reachable in one click; only the labels,
+ * counts and the model tree go, and those are the parts that need the width.
+ */
+.nav--collapsed {
+  width: var(--sidebar-w-collapsed);
+}
+
+.nav--collapsed .nav__item__label,
+.nav--collapsed .nav__item__meta,
+.nav--collapsed .nav__section,
+.nav--collapsed .nav__dirty {
+  display: none;
+}
+
+.nav--collapsed .nav__item {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+/* Indentation means nothing without labels, and misaligns the icons. */
+.nav--collapsed .nav__item[data-depth] {
+  padding-left: 0;
+}
+
+.nav--collapsed .nav__twisty {
+  display: none;
+}
+
+/* The toggle itself, pinned below the destinations. */
+.nav__collapse {
+  display: flex;
+  flex: none;
+  gap: var(--s3);
+  align-items: center;
+  width: 100%;
+  padding: var(--s3) var(--s4);
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+  border-radius: var(--r-sm);
+}
+
+.nav__collapse:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+
+.nav--collapsed .nav__collapse {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.nav--collapsed .nav__collapse span {
+  display: none;
+}
+
+.nav__scroll {
+  flex: 1;
+  min-height: 0;
+  padding: var(--s4) var(--s3);
+  overflow-y: auto;
+}
+
+.nav__foot {
+  flex: none;
+  padding: var(--s3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/*
+ * A section heading with room for one action.
+ *
+ * The action belongs to the section, as it does in an editor's explorer, `+` beside
+ * MODELS creates a model. Putting it here rather than in the top bar is what makes it
+ * unambiguous *what* is being created.
+ */
+.nav__section {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+  height: 28px;
+  margin-top: var(--s4);
+  padding: 0 var(--s3) 0 var(--s4);
+  color: var(--text-4);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nav__section:first-child {
+  margin-top: 0;
+}
+
+.nav__item {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  width: 100%;
+  height: 30px;
+  padding: 0 var(--s4);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: left;
+  text-decoration: none;
+  border-radius: var(--r);
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.nav__item:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+  text-decoration: none;
+}
+
+/*
+ * The current destination.
+ *
+ * A filled background plus medium weight, no left accent bar. The bar version had to
+ * cancel the item's own padding to sit flush, which broke alignment the moment an item
+ * nested, and nested items are the whole point of the model tree.
+ */
+.nav__item--on {
+  color: var(--accent-text);
+  font-weight: var(--fw-medium);
+  background: var(--accent-soft);
+}
+
+.nav__item--on:hover {
+  color: var(--accent-text);
+  background: var(--accent-soft-hover);
+}
+
+.nav__item__icon {
+  flex: none;
+  color: var(--text-4);
+}
+
+.nav__item--on .nav__item__icon {
+  color: var(--accent);
+}
+
+.nav__item__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Trailing count. Pushed right, never pushing the label out. */
+.nav__item__meta {
+  flex: none;
+  margin-left: auto;
+}
+
+/* Indentation for the model tree. Depth is a data attribute so the CSS stays one rule. */
+.nav__item[data-depth="1"] {
+  padding-left: var(--s7);
+}
+
+.nav__item[data-depth="2"] {
+  padding-left: var(--s9);
+}
+
+.nav__twisty {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-left: -2px;
+  color: var(--text-4);
+  border-radius: var(--r-xs);
+}
+
+.nav__twisty:hover {
+  color: var(--text-1);
+  background: var(--bg-active);
+}
+
+/* A file with uncommitted changes, decorated as an editor decorates it. */
+.nav__dirty {
+  color: var(--git-modified);
+}
+
+/* ---------------------------------------------------------------- page scaffold */
+
+/*
+ * Every route renders one of these.
+ *
+ * A fixed scaffold is most of why the app reads as one product rather than as six
+ * screens: the title is always in the same place, the tabs are always under it, the
+ * actions are always top-right, and the body is the only thing that scrolls.
+ */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-canvas);
+}
+
+.page__head {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--s5);
+  padding: var(--s6) var(--s7) 0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+
+/* No tabs means the head needs its own bottom padding to keep the title off the border. */
+.page__head--plain {
+  padding-bottom: var(--s6);
+}
+
+.page__titlerow {
+  position: relative;
+  display: flex;
+  gap: var(--s5);
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.page__heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.page__title {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  min-width: 0;
+  color: var(--text-1);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--track-tighter);
+}
+
+.page__subtitle {
+  color: var(--text-4);
+  font-size: var(--fs-sm);
+}
+
+.page__actions {
+  display: flex;
+  flex: none;
+  gap: var(--s4);
+  align-items: center;
+  margin-left: auto;
+}
+
+/*
+ * The scope row: where you are on the left, sibling views of the same thing on the right.
+ *
+ * Two different jobs that both answer "where am I", which is why they share a row and sit
+ * at opposite ends of it rather than being stacked. Harness runs
+ * `Account › Organization › Project › Pipelines` against
+ * `Pipeline Studio | Input Sets | Triggers | Analytics` in exactly this arrangement.
+ */
+.page__scoperow {
+  display: flex;
+  gap: var(--s5);
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+
+.crumbs__item {
+  display: inline-flex;
+  gap: var(--s2);
+  align-items: center;
+  min-width: 0;
+}
+
+.crumbs__sep { color: var(--text-4); }
+
+.crumbs__link {
+  color: var(--accent-text);
+  font: inherit;
+}
+
+.crumbs__link:hover { text-decoration: underline; }
+
+/* The last crumb is the page you are on. A crumb that navigates to itself teaches
+   people that crumbs do nothing, so it is text. */
+.crumbs__here { color: var(--text-4); }
+
+.page__views {
+  display: flex;
+  flex: none;
+  gap: var(--s2);
+  align-items: center;
+}
+
+/*
+ * The centre zone of the title row.
+ *
+ * Absolutely centred against the *page*, not balanced between its neighbours, because a
+ * flex-centred middle child drifts as the title's length changes, and a mode switch that
+ * moves when you rename something reads as a different control each time. `pointer-events`
+ * is restored on the child so the transparent track does not eat clicks meant for the
+ * title beneath it.
+ */
+.page__centre {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.page__centre > * { pointer-events: auto; }
+
+/* Small grey facts under the title: id, when it changed, what it derives from. */
+.page__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  align-items: center;
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+.page__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: center;
+  margin-top: var(--s2);
+}
+
+/*
+ * A tag chip.
+ *
+ * Outlined rather than filled, which is the Harness treatment and the right one here: tags
+ * are metadata a person attached, not status the system computed, and a filled chip reads
+ * as the latter. Keeping them visually quieter than a `Badge` also stops a model with six
+ * tags from shouting louder than one with an error.
+ */
+.page__tag {
+  padding: 1px var(--s3);
+  color: var(--text-3);
+  font-size: 11px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+}
+
+.page__body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--s7);
+  overflow-y: auto;
+}
+
+/* Constrains prose and forms to a readable measure, centred. Lists and tables opt out. */
+.page__body--narrow > * {
+  max-width: var(--page-max);
+  margin: 0 auto;
+}
+
+/* The canvas manages its own scrolling and must fill the region exactly. */
+.page__body--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------- models list */
+
+/*
+ * The controls that make a list of three hundred usable.
+ *
+ * Wraps rather than scrolls: at a narrow width the filters stacking above the table is
+ * fine, whereas a horizontally scrolling control strip hides the filter someone is looking
+ * for behind an edge they have no reason to suspect.
+ */
+.models__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s4);
+  align-items: center;
+}
+
+.models__search {
+  display: flex;
+  flex: 1 1 260px;
+  gap: var(--s3);
+  align-items: center;
+  min-width: 0;
+  padding-left: var(--s4);
+  color: var(--text-4);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+/* The input supplies its own chrome; inside this wrapper it must not double it up. */
+.models__search .input {
+  background: none;
+  border: 0;
+}
+
+.models__search .input:focus { box-shadow: none; }
+
+.models__name {
+  display: inline-flex;
+  gap: var(--s3);
+  align-items: center;
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+.models__name:hover { text-decoration: underline; }
+
+.models__desc {
+  margin: 2px 0 0;
+  max-width: 52ch;
+}
+
+/* What is in the model, as a row of counts rather than six more columns. */
+.models__kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+}
+
+.models__kind {
+  padding: 1px var(--s3);
+  color: var(--text-3);
+  font-size: 10px;
+  background: var(--bg-inset);
+  border-radius: var(--r-full);
+  white-space: nowrap;
+}
+
+.models__sort {
+  display: inline-flex;
+  gap: var(--s2);
+  align-items: center;
+  color: inherit;
+  font: inherit;
+}
+
+.models__sort:hover { color: var(--text-1); }
+.models__sort--on { color: var(--accent-text); }
+
+.models__count { margin: var(--s4) 0 0; }
+
+/*
+ * A hairline between groups of toolbar controls.
+ *
+ * The page actions had five segmented groups in an unbroken row, so a mode switch, a
+ * display option, a notation option and navigation to a different model all read as one
+ * undifferentiated strip of grey pills. The divider costs a pixel and restores the thing
+ * that was missing: an indication that these are separate kinds of decision.
+ *
+ * Shorter than the controls it separates, a full-height rule would read as a border and
+ * start dividing the toolbar into boxes, which is the opposite of the point.
+ */
+.toolbar__sep {
+  flex: none;
+  align-self: center;
+  width: 1px;
+  height: 18px;
+  margin: 0 var(--s2);
+  background: var(--border);
+}
+
+/* ---------------------------------------------------------------- status bar */
+
+/*
+ * Model validity and git state, always visible, never in the way.
+ *
+ * These were floating chips over the bottom-right of the canvas, where they covered the
+ * diagram and moved depending on which other overlay was open. A status bar is where
+ * every editor puts this, and it costs 28px once rather than obscuring content
+ * permanently.
+ */
+.statusbar {
+  display: flex;
+  gap: var(--s5);
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--s5);
+  font-size: var(--fs-xs);
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+}
+
+.statusbar__item {
+  display: flex;
+  flex: none;
+  gap: var(--s3);
+  align-items: center;
+  height: 20px;
+  padding: 0 var(--s3);
+  color: var(--text-3);
+  border-radius: var(--r-sm);
+}
+
+.statusbar__item--button:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+
+.statusbar__item--ok {
+  color: var(--ok-text);
+}
+
+.statusbar__item--warn {
+  color: var(--warn-text);
+}
+
+.statusbar__item--err {
+  color: var(--err-text);
+}
+
+/*
+ * The zoom control, contributed by the canvas through the status bar's `extra` slot.
+ *
+ * It was a floating box pinned to the canvas's bottom-right corner, and the save-state
+ * chip sat directly above it at a hardcoded `bottom: 58px` to avoid it. Two surfaces
+ * hand-negotiating position in absolute pixels is a layout that breaks whenever either
+ * one changes height, and it put a control the user touches occasionally permanently on
+ * top of the diagram they are reading constantly.
+ *
+ * Here it is ambient state next to the other ambient state, in a bar that already
+ * exists and never moves. No z-index, because it is in the normal flow.
+ */
+.statusbar__zoom {
+  display: flex;
+  flex: none;
+  gap: var(--s1);
+  align-items: center;
+}
+
+.statusbar__zoom button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-3);
+  border-radius: var(--r-sm);
+}
+
+.statusbar__zoom button:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+
+/* Fixed width so the bar does not jitter as the percentage changes width while zooming. */
+.statusbar__zoom output {
+  min-width: 38px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- command palette */
+
+/*
+ * ⌘K.
+ *
+ * The single most valuable addition to the navigation, because it makes the *depth* of
+ * the app free: a modeller who knows the name of a table does not have to know which
+ * product, tier and folder it lives under to get to it. It also means every command has
+ * one discoverable home, which is what let the ribbon-worth of buttons come off the
+ * chrome.
+ *
+ * Positioned at 15vh rather than centred: a vertically-centred palette jumps as results
+ * change, because centring re-lays-out on every keystroke.
+ */
+.palette-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-palette);
+  display: flex;
+  justify-content: center;
+  padding: 15vh var(--s7) var(--s7);
+  background: var(--bg-scrim);
+  animation: fade-in var(--dur-fast) var(--ease);
+}
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  width: min(620px, 100%);
+  max-height: 60vh;
+  overflow: hidden;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-4);
+  animation: dialog-in var(--dur-med) var(--ease-out);
+}
+
+.palette__search {
+  display: flex;
+  flex: none;
+  gap: var(--s4);
+  align-items: center;
+  padding: 0 var(--s5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.palette__input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  color: var(--text-1);
+  font-size: var(--fs-lg);
+  background: none;
+  border: none;
+  outline: none;
+}
+
+.palette__input::placeholder {
+  color: var(--text-4);
+}
+
+.palette__results {
+  flex: 1;
+  min-height: 0;
+  padding: var(--s3);
+  overflow-y: auto;
+}
+
+.palette__group {
+  padding: var(--s4) var(--s4) var(--s2);
+  color: var(--text-4);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.palette__row {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  width: 100%;
+  padding: var(--s4);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: left;
+  border-radius: var(--r);
+}
+
+/*
+ * Highlight follows the keyboard cursor, not the mouse.
+ *
+ * `:hover` as the only highlight means the mouse resting anywhere over the list fights
+ * the arrow keys for which row is "current", and Enter becomes a gamble. Mouseover moves
+ * the cursor instead, so there is exactly one selected row at all times.
+ */
+.palette__row[data-active="true"] {
+  color: var(--text-1);
+  background: var(--accent-soft);
+}
+
+.palette__row__icon {
+  flex: none;
+  color: var(--text-4);
+}
+
+.palette__row[data-active="true"] .palette__row__icon {
+  color: var(--accent);
+}
+
+.palette__row__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette__row__meta {
+  flex: none;
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+.palette__foot {
+  display: flex;
+  flex: none;
+  gap: var(--s5);
+  align-items: center;
+  padding: var(--s3) var(--s5);
+  color: var(--text-4);
+  font-size: var(--fs-2xs);
+  background: var(--bg-canvas);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.palette__hint {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+}
+
+/* ---------------------------------------------------------------- narrow */
+
+/*
+ * Below 900px the sidebar collapses to icons.
+ *
+ * Not hidden behind a hamburger: on a 13" laptop, which is what a modeller in a meeting
+ * has, losing navigation entirely is worse than losing the labels.
+ */
+@media (max-width: 900px) {
+  .nav {
+    width: var(--sidebar-w-collapsed);
+  }
+
+  .nav__item__label,
+  .nav__item__meta,
+  .nav__section {
+    display: none;
+  }
+
+  .nav__item {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .omni__text {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- domain groups */
+
+/*
+ * A domain and the models inside it.
+ *
+ * Bordered as one block rather than separated by whitespace, because the group *is* the
+ * unit: it has to be obvious that four rows belong to `retail` and the next two do not,
+ * and whitespace alone stops carrying that once the list is longer than a screen.
+ */
+.dgroup {
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.dgroup__head {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  min-width: 0;
+  padding: var(--s4) var(--s5);
+  background: var(--bg-inset);
+  border-bottom: 1px solid var(--border);
+}
+
+.dgroup__twisty {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-4);
+  border-radius: var(--r-sm);
+}
+
+.dgroup__twisty:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+
+.dgroup__name {
+  display: inline-flex;
+  flex: none;
+  gap: var(--s3);
+  align-items: center;
+  color: var(--text-1);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+}
+
+.dgroup__name:hover { color: var(--accent-text); }
+
+/* Ungrouped is the absence of a domain, so it is not a link and does not pretend to be. */
+.dgroup__name--none {
+  color: var(--text-4);
+  font-weight: var(--fw-normal);
+}
+
+.dgroup__counts { flex: none; }
+
+.dgroup__tags {
+  margin-top: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dgroup__open {
+  display: inline-flex;
+  flex: none;
+  gap: var(--s2);
+  align-items: center;
+  margin-left: auto;
+  color: var(--accent-text);
+  font-size: var(--fs-xs);
+}
+
+.dgroup__open:hover { text-decoration: underline; }
+
+.dgroup__rows {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------------- model rows */
+
+/*
+ * One model, as a row that hovers as a single card.
+ *
+ * Harness lifts the whole row on hover rather than tinting one cell, which is what makes it
+ * read as one target, and it is one target here too, since the entire row navigates. The
+ * kebab sits outside the anchor so opening the menu is not also a navigation.
+ */
+.mrow {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.mrow:last-child { border-bottom: 0; }
+
+.mrow:hover { background: var(--bg-hover); }
+
+
+
+.mrow__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mrow__top {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  min-width: 0;
+}
+
+.mrow__name {
+  overflow: hidden;
+  color: var(--accent-text);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mrow:hover .mrow__name { text-decoration: underline; }
+
+.mrow__id {
+  overflow: hidden;
+  color: var(--text-4);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mrow__kinds,
+.mrow__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  align-items: center;
+  min-width: 0;
+}
+
+.mrow__derived {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mrow__side {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Loading placeholder for the last-change cell: "unknown" must not render as "none". */
+.mrow__skeleton {
+  display: block;
+  width: 90px;
+  height: 12px;
+  background: var(--bg-inset);
+  border-radius: 2px;
+}
+
+/* ---------------------------------------------------------------- at a glance */
+
+/*
+ * The counts grid.
+ *
+ * `auto-fill` with a minimum rather than a fixed column count, so the same markup gives four
+ * across on a wide window and two on a narrow one without a media query per breakpoint.
+ */
+.glance {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s5);
+}
+
+.glance__title {
+  color: var(--text-2);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+}
+
+/*
+ * One count.
+ *
+ * A card rather than a bare number so the whole thing is the target, a 26px numeral is a small
+ * thing to hit, and Harness makes the entire tile clickable for the same reason.
+ */
+.glance__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s5);
+  color: inherit;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.glance__card--link:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.glance__card--link:hover .glance__value { color: var(--accent-text); }
+
+/* The chevron only appears on hover: present always, it competes with the number. */
+.glance__go {
+  position: absolute;
+  top: var(--s5);
+  right: var(--s5);
+  color: var(--text-4);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.glance__card--link:hover .glance__go { opacity: 1; }
+
+.glance__label {
+  display: block;
+  color: var(--text-4);
+  font-size: var(--fs-sm);
+}
+
+/*
+ * The hint under a count.
+ *
+ * Same colour as the label, one size smaller. It was written against a `--text-5` that does not
+ * exist, the scale stops at four, so it silently inherited full-strength text and read as
+ * loudly as the number. Adding a fifth tier was the tempting fix and the wrong one: the next
+ * step down the neutral ramp is `#c3cbd5`, about 1.8:1 on white, which fails contrast outright at
+ * this size. Hierarchy comes from the size difference instead, which costs nothing to read.
+ */
+.glance__hint {
+  display: block;
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+
+.glance__value {
+  display: block;
+  color: var(--text-1);
+  font-size: 26px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--track-tighter);
+}
+
+/*
+ * Tones, after the base rule and not before it.
+ *
+ * These are single-class selectors, exactly as specific as `.glance__value`, so source order is
+ * the only thing deciding which wins. Written above it they lost silently, the class was on the
+ * element, the colour was not, and a warning count rendered as an ordinary number.
+ */
+.glance__value--err { color: var(--err-text); }
+.glance__value--warn { color: var(--warn-text); }
+.glance__value--accent { color: var(--accent-text); }
+
+/* ---------------------------------------------------------------- domain page */
+
+.domain__models {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.domain__model {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  padding-right: var(--s5);
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.domain__model:last-child { border-bottom: 0; }
+.domain__model:hover { background: var(--bg-hover); }
+
+.domain__model__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s2);
+  min-width: 0;
+  padding: var(--s5);
+  color: inherit;
+}
+
+.domain__model__top {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  min-width: 0;
+}
+
+.domain__model__name {
+  color: var(--accent-text);
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+
+.domain__model:hover .domain__model__name { text-decoration: underline; }
+
+.domain__model__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.domain__model__side {
+  display: flex;
+  flex: none;
+  gap: var(--s4);
+  align-items: center;
+}
+
+/* ---------------------------------------------------------------- owners */
+
+/*
+ * Who owns this, as overlapping initials.
+ *
+ * Overlapping rather than spaced, so a domain with eight owners costs the width of about
+ * four, the same reason every collaboration UI stacks them.
+ */
+.owners {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+
+.owners__label {
+  color: var(--text-4);
+  font-size: 10px;
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+}
+
+.owners__list {
+  display: flex;
+  align-items: center;
+}
+
+.owners__avatar {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: -6px;
+  color: var(--bg-surface);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  background: var(--text-3);
+  border: 1.5px solid var(--bg-surface);
+  border-radius: var(--r-full);
+}
+
+.owners__avatar:last-child { margin-right: 0; }
+
+/* ---------------------------------------------------------------- tag input */
+
+.taginput {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: center;
+  min-height: 32px;
+  padding: var(--s2) var(--s3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  cursor: text;
+}
+
+.taginput:focus-within { box-shadow: var(--ring); }
+
+.taginput--off {
+  background: var(--bg-inset);
+  cursor: default;
+}
+
+.taginput__chip {
+  display: inline-flex;
+  gap: var(--s2);
+  align-items: center;
+  padding: 1px var(--s2) 1px var(--s3);
+  color: var(--text-2);
+  font-size: 11px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+.taginput__x {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  color: var(--text-4);
+  border-radius: var(--r-sm);
+}
+
+.taginput__x:hover {
+  color: var(--err-text);
+  background: var(--bg-hover);
+}
+
+/*
+ * The field grows into the space left by the chips.
+ *
+ * `flex: 1` with a small basis rather than a fixed width, so it wraps onto its own line once
+ * the chips fill the row instead of forcing a horizontal scroll.
+ */
+.taginput__field {
+  flex: 1 1 90px;
+  min-width: 90px;
+  padding: 2px 0;
+  color: var(--text-1);
+  font: inherit;
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+/* ---------------------------------------------------------------- canvas bar */
+
+/*
+ * Tools left, display options right, one bar above the canvas.
+ *
+ * The drawing tools and the display options are both canvas-scoped, which is why they share a
+ * bar, but they are not the same kind of thing, so they sit at opposite ends of it rather
+ * than running together into one undifferentiated row of controls.
+ */
+.canvasbar {
+  display: flex;
+  flex: none;
+  gap: var(--s5);
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+
+/* The palette supplies its own bottom border; inside this bar it must not double it up. */
+.canvasbar .shapebar {
+  border-bottom: 0;
+}
+
+.canvasbar__view {
+  display: flex;
+  flex: none;
+  gap: var(--s4);
+  align-items: center;
+  padding-right: var(--s5);
+}
+
+/* ---------------------------------------------------------------- history */
+
+/*
+ * What landed, as a timeline.
+ *
+ * A list rather than a table, because the entries are not comparable field by field: what
+ * matters is the sentence, who changed what, when, in which pull request, and a table would
+ * spread that across five columns to be reassembled by eye.
+ */
+.hist {
+  display: flex;
+  flex-direction: column;
+}
+
+.hist__row {
+  display: flex;
+  gap: var(--s4);
+  align-items: flex-start;
+  padding: var(--s5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.hist__row:last-child { border-bottom: 0; }
+
+.hist--dense .hist__row { padding: var(--s4) var(--s5); }
+
+.hist__mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-4);
+  background: var(--bg-inset);
+  border-radius: var(--r-full);
+}
+
+.hist__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.hist__top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: baseline;
+  min-width: 0;
+}
+
+/*
+ * The pull request number, leading.
+ *
+ * Monospace and accented because it is an identifier people quote to each other, "did #42
+ * land", and it wants to be findable by eye down a column of rows rather than read as part
+ * of the sentence beside it.
+ */
+.hist__pr {
+  flex: none;
+  color: var(--accent-text);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.hist__pr:hover { text-decoration: underline; }
+
+.hist__subject {
+  min-width: 0;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+}
+
+.hist__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  align-items: center;
+}
+
+.hist__files {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: var(--s2) 0 0;
+  padding: 0;
+  color: var(--text-4);
+  font-size: 10px;
+  list-style: none;
+}
+
+.hist__more {
+  margin: 0;
+  padding: var(--s4) var(--s5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ---------------------------------------------------------------- model row v2 */
+
+/*
+ * The row grid, shared by the column headers so the two cannot drift apart.
+ *
+ * A single custom property holds the track list. Defining it twice, once for the header and
+ * once for the rows, is how a list ends up with headings that no longer sit over their
+ * columns after someone adjusts one of them.
+ */
+.dgroup__rows,
+.dgroup__cols {
+  --mrow-grid: minmax(200px, 1.7fr) 130px minmax(150px, 1fr) minmax(140px, 0.9fr) 70px;
+}
+
+.dgroup__cols {
+  display: grid;
+  grid-template-columns: var(--mrow-grid) 28px;
+  gap: var(--s4);
+  align-items: end;
+  padding: var(--s3) var(--s5);
+  color: var(--text-4);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The caption above Recent changes, explaining which end is now. */
+.dgroup__hint {
+  display: block;
+  color: var(--text-4);
+  font-size: 9px;
+  font-weight: var(--fw-normal);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/*
+ * The grid now lives on the row itself, not on an inner anchor.
+ *
+ * The squares column contains its own links, so it cannot be inside the row's link, the
+ * cells are siblings of an absolutely-positioned overlay instead. That means the row is the
+ * grid.
+ */
+.mrow {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--mrow-grid) 28px;
+  gap: var(--s4);
+  align-items: center;
+  padding: var(--s4) var(--s5);
+}
+
+/* Covers the row, sits under the cells so nested links stay clickable. */
+.mrow__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Everything visible sits above the overlay; only the gaps between cells fall through it. */
+.mrow > *:not(.mrow__overlay) {
+  position: relative;
+  z-index: var(--z-local);
+  /* ...but text must not swallow the row click, so only real controls opt back in. */
+  pointer-events: none;
+}
+
+.mrow .square,
+.mrow__side,
+.mrow__tagcount {
+  pointer-events: auto;
+}
+
+.mrow__cell {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  min-width: 0;
+}
+
+/* The tag glyph and its count, beside the name rather than as spelled-out chips. */
+.mrow__tagcount {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  align-items: center;
+  color: var(--text-4);
+  font-size: 11px;
+}
+
+.mrow__id {
+  overflow: hidden;
+  color: var(--text-4);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mrow__last { min-width: 0; }
+
+.mrow__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--accent-text);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  background: var(--accent-soft);
+  border-radius: var(--r-full);
+}
+
+.mrow__lastbody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.mrow__lastname {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- change squares */
+
+/*
+ * Recent changes, one square each, oldest on the left.
+ *
+ * Squares rather than a sparkline because each one is a discrete event you can point at and
+ * open, the shape carries no magnitude, only sequence and kind.
+ */
+.squares {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  align-items: center;
+  min-width: 0;
+}
+
+.square {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.square:hover { transform: scale(1.25); }
+
+/*
+ * Filled for a change that came through a pull request, outlined for one pushed straight to
+ * the branch. On a governed repository that difference is the point of the column: a row of
+ * outlines says this model is being edited without review.
+ */
+.square--pr {
+  background: var(--ok-text);
+}
+
+/*
+ * A change pushed straight to the branch: filled, in a warning tone.
+ *
+ * The first version outlined these instead, on the logic that "reviewed" deserved the solid
+ * treatment. On a repository with no pull requests yet, which is every repository on day one
+ *, that made the whole column render as empty outlines and read as "no data". Both kinds are
+ * filled now; the colour carries the difference, and a row of amber says what it should.
+ */
+.square--direct {
+  background: var(--warn-text);
+  opacity: 0.55;
+}
+
+.square--direct:hover { opacity: 1; }
+
+/* Loading: a quiet placeholder, so an empty row never reads as "no changes" before we know. */
+.squares--loading {
+  display: block;
+  width: 100px;
+  height: 12px;
+  background: var(--bg-inset);
+  border-radius: 2px;
+}
+
+/* The embedded Output tab: its controls as a plain row, since the page header is the model's. */
+.output__bar {
+  flex-wrap: wrap;
+  gap: var(--s4);
+}
+
+/* ---------------------------------------------------------------- migration */
+
+.migration {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-top: var(--s7);
+  padding-top: var(--s6);
+  border-top: 1px solid var(--border);
+}
+
+.migration__table {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+.migration__table > summary {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  padding: var(--s4) var(--s5);
+  cursor: pointer;
+}
+
+.migration__table[open] > summary { border-bottom: 1px solid var(--border); }
+
+.migration__table .codeblock {
+  margin: 0;
+  max-height: 40vh;
+  border: 0;
+  border-radius: 0;
+}

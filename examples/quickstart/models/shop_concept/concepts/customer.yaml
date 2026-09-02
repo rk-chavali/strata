@@ -1,0 +1,7 @@
+id: cpt_customer
+kind: concept
+name: Customer
+model: shop_concept
+definition: Someone who has bought something from us, or set up an account intending to.
+subjectArea: Sales
+businessKey: Identified by the customer identifier issued when the account is created.

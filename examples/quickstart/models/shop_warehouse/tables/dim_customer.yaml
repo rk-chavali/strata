@@ -1,0 +1,36 @@
+id: tbl_dim_customer
+kind: table
+name: dim_customer
+model: shop_warehouse
+objectType: table
+description: One row per customer. Type 1, so a corrected email overwrites the old one.
+layer: mart
+grain: One row per customer.
+columns:
+  - id: col_dc_customer_id
+    name: customer_id
+    dataType: STRING
+    mode: REQUIRED
+    description: The identifier the shop issues to a customer.
+  - id: col_dc_customer_name
+    name: customer_name
+    dataType: STRING
+    mode: REQUIRED
+  - id: col_dc_email
+    name: email_address
+    dataType: STRING
+    mode: NULLABLE
+    description: Personal data. The classification is inherited from the email_address domain.
+    classification:
+      sensitivity: confidential
+      categories:
+        - pii
+  - id: col_dc_created_at
+    name: created_at
+    dataType: TIMESTAMP
+    mode: REQUIRED
+primaryKey:
+  - customer_id
+clusterBy:
+  - customer_id
+entityRef: shop_logical:Customer

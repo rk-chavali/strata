@@ -1,0 +1,12 @@
+id: mdl_shop_warehouse
+kind: model
+name: shop_warehouse
+tier: physical
+namespace: shop
+description: BigQuery. Real types, real partitioning, real clustering.
+derivedFrom: shop_logical
+target:
+  platform: bigquery
+  project: shop-analytics
+  dataset: shop_mart
+  location: EU

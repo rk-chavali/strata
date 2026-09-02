@@ -1,0 +1,28 @@
+{
+  "name": "@strata/server",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Read/write API over a model repo, backing the web UI",
+  "scripts": {
+    "dev": "tsx watch src/index.ts ../../examples/quickstart",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@strata/ddl": "workspace:*",
+    "@strata/import": "workspace:*",
+    "@strata/metamodel": "workspace:*",
+    "@strata/query": "workspace:*",
+    "@strata/storage": "workspace:*",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "vitest": "^2.1.9"
+  }
+}

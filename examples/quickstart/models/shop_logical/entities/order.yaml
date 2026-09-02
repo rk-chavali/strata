@@ -1,0 +1,37 @@
+id: ent_order
+kind: entity
+name: Order
+model: shop_logical
+description: One confirmed request to buy. Cancelled orders stay, with a status.
+subjectArea: shop_concept:Sales
+entityType: entity
+attributes:
+  - id: att_ord_id
+    name: Order Identifier
+    logicalType: string
+    required: true
+    inherited: false
+  - id: att_ord_customer
+    name: Customer Identifier
+    domain: customer_id
+    required: true
+    inherited: true
+    inheritedFrom: customer_places_order
+  - id: att_ord_placed
+    name: Placed At
+    logicalType: timestamp
+    required: true
+    inherited: false
+  - id: att_ord_total
+    name: Order Total
+    domain: money
+    required: true
+    inherited: false
+  - id: att_ord_status
+    name: Order Status
+    logicalType: string
+    required: true
+    inherited: false
+primaryKey:
+  - Order Identifier
+conceptRef: shop_concept:Order

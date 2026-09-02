@@ -1,0 +1,11 @@
+# Strata documentation.
+#
+# Everything here is meant to be found. The only exclusion is the demo waking page: it is a
+# redirector that holds no content of its own, and a search result landing somebody on a spinner
+# is a worse answer than landing them on the page that explains what they came for.
+
+User-agent: *
+Allow: /
+Disallow: /try.html
+
+Sitemap: https://strata-docs.chavali-r.workers.dev/sitemap.xml

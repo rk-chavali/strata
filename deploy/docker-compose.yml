@@ -1,0 +1,104 @@
+# Self-hosted Strata, from the published image.
+#
+# **This file is the whole install.** Save it, write a `.env` beside it, run
+# `docker compose up -d`. There is nothing to clone and nothing to build.
+#
+# That is the difference between this file and the `docker-compose.yml` in the
+# repository root. That one says `build: .`, which needs the source tree, so it is
+# for people working *on* Strata. This one pulls a released image, which is what
+# somebody running Strata actually wants.
+#
+# The canonical copy for readers is the self-hosting page, which prints this file in
+# full rather than linking to it. That is deliberate: the source repository is
+# private, so any `curl` from it would 404 for the very people the instructions are
+# written for. The documentation has to be able to stand alone.
+#
+# The container holds no state. Your model repository is a bind mount and stays a
+# normal git checkout on the host, so `git log` there shows exactly what the tool did.
+
+services:
+  strata:
+    # `latest` is the newest release.
+    #
+    # Right for evaluating, and right for a team that reads what changed before pulling.
+    # For production, name a version instead, because `latest` moves across major
+    # versions and a routine `docker compose pull` then brings a breaking change:
+    #
+    #   image: ghcr.io/rk-chavali/strata:0.1.0
+    #
+    # Every published tag, and when it was pushed:
+    # https://github.com/users/rk-chavali/packages/container/package/strata
+    image: ghcr.io/rk-chavali/strata:latest
+
+    ports:
+      - "4000:4000"
+
+    environment:
+      PORT: 4000
+      STRATA_WORKSPACE: /workspace
+
+      # Accounts, password hashes and the session signing secret. On a named volume,
+      # deliberately outside the model repository: committing password hashes into the
+      # repository this tool versions would be an unforced error.
+      STRATA_DATA_DIR: /data
+
+      # The administrator, created at boot if no account exists yet.
+      #
+      # Set these before the first start. Without them the first-run setup route is
+      # open, and if the data volume is ever lost it opens again, at which point the
+      # next person to reach the port becomes your administrator.
+      #
+      # Generate the hash with:
+      #   docker run --rm -it ghcr.io/rk-chavali/strata node apps/server/dist/hash-password.js
+      STRATA_ADMIN_USERNAME: ${STRATA_ADMIN_USERNAME:-}
+      STRATA_ADMIN_PASSWORD_HASH: ${STRATA_ADMIN_PASSWORD_HASH:-}
+
+      # Set to true once you are behind HTTPS, so the session cookie is marked Secure.
+      # Leave false for plain HTTP on localhost or behind a VPN: a browser silently
+      # drops a Secure cookie over HTTP, and sign-in then appears to work and does not.
+      STRATA_COOKIE_SECURE: ${STRATA_COOKIE_SECURE:-false}
+
+      # Set true only when a reverse proxy is in front, so X-Forwarded-For is trusted.
+      # True with nothing in front lets a client forge its own address and walk around
+      # the sign-in throttle.
+      STRATA_TRUST_PROXY: ${STRATA_TRUST_PROXY:-false}
+
+      # Opens pull requests. Without it Strata still branches, commits and pushes, then
+      # hands back a compare link for you to open yourself.
+      # Scope: `repo` for a classic token, or contents and pull-requests write for a
+      # fine-grained one.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+
+      # Who commits show up as. git reads these natively.
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-strata}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-strata@localhost}
+      GIT_COMMITTER_NAME: ${GIT_AUTHOR_NAME:-strata}
+      GIT_COMMITTER_EMAIL: ${GIT_AUTHOR_EMAIL:-strata@localhost}
+
+    volumes:
+      # Your model repository. Must be a real git checkout for the pull request flow
+      # to work: Strata branches and commits in place, so there has to be a remote.
+      - ${STRATA_WORKSPACE_HOST:?set STRATA_WORKSPACE_HOST in .env to your model checkout}:/workspace
+
+      # Accounts and the session secret. Losing this volume means re-running first-run
+      # setup. It does not touch your models, which live in the repository above.
+      - strata-data:/data
+
+      # Read-only SSH keys, for git remotes that use SSH rather than HTTPS.
+      # Comment this out if you push over HTTPS with a token.
+      - ${SSH_DIR:-~/.ssh}:/home/strata/.ssh:ro
+
+    restart: unless-stopped
+
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  strata-data:

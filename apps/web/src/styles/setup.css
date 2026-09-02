@@ -1,0 +1,339 @@
+/*
+ * First-run setup.
+ *
+ * Its own file, and its own full-page surface, for the same reason `canvas.css` is
+ * separate: this is not chrome the shell wraps, it *replaces* the shell. On a fresh
+ * instance there is no workspace to put in a sidebar and no model state for a status bar,
+ * so rendering the shell around this would frame it with four empty regions.
+ *
+ * Written against the semantic tokens rather than the raw `--n*` ramp, so it follows the
+ * theme in both directions without a `[data-theme="dark"]` block. `.signin` predates the
+ * semantic set and still uses the ramp; that is migration debt, not the pattern to copy.
+ */
+
+.setup {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: var(--s7);
+  overflow-y: auto;
+  background: var(--bg-sunken);
+}
+
+.setup__card {
+  display: flex;
+  flex-direction: column;
+  /*
+   * Wider than the sign-in card. This one carries explanatory prose and a choice list,
+   * and at 400px the layout options wrap to three lines each and read as a wall.
+   */
+  width: min(620px, 100%);
+  /* `auto` rather than a stretch: a short step should not leave the footer stranded. */
+  margin: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+
+/* ---------------------------------------------------------------- head */
+
+.setup__head {
+  padding: var(--s8) var(--s8) var(--s6);
+}
+
+.setup__brand {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  margin-bottom: var(--s6);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.setup__title {
+  margin: 0 0 var(--s4);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.setup__lede {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.setup__lede code {
+  padding: 1px var(--s2);
+  font-size: 0.92em;
+  background: var(--bg-inset);
+  border-radius: var(--r-xs);
+}
+
+/*
+ * The path the server will write to.
+ *
+ * Shown because the single most common self-hosting mistake is a bind mount landing
+ * somewhere other than intended, and this is the last moment before files are created in
+ * it. `direction: rtl` keeps the *end* of a long path visible when it truncates, the
+ * leading `/var/lib/docker/volumes/…` is never the part in question.
+ */
+.setup__path {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  margin: var(--s6) 0 0;
+  padding: var(--s3) var(--s4);
+  overflow: hidden;
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  background: var(--bg-inset);
+  border-radius: var(--r-sm);
+}
+
+/* The icon must not be squeezed to nothing when the path is long. */
+.setup__path svg {
+  flex: none;
+}
+
+/*
+ * The path itself, truncating from the *left*.
+ *
+ * `text-overflow` cannot act on a bare text node inside a flex container, the text has
+ * to be its own block with `min-width: 0`, or the flex item simply refuses to shrink and
+ * the path runs out of the card entirely.
+ *
+ * `direction: rtl` puts the ellipsis at the start. A container path is mostly
+ * uninformative prefix (`/var/lib/docker/volumes/…`), and the tail is the part that tells
+ * the operator whether the mount landed where they meant. Latin runs still render
+ * left-to-right inside an RTL box, so the path stays readable; `text-align: left` keeps
+ * it pinned beside the icon rather than drifting to the right edge.
+ */
+.setup__pathtext {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+/* ---------------------------------------------------------------- steps */
+
+.setup__steps {
+  display: flex;
+  gap: var(--s6);
+  margin: 0;
+  padding: var(--s4) var(--s8);
+  list-style: none;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.setup__step {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+.setup__step--on {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.setup__step--done {
+  color: var(--text-3);
+}
+
+.setup__stepnum {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-inset);
+  border-radius: var(--r-full);
+}
+
+.setup__step--on .setup__stepnum {
+  color: var(--text-on-accent);
+  background: var(--accent);
+}
+
+.setup__step--done .setup__stepnum {
+  color: var(--ok-text);
+  background: var(--ok-soft);
+}
+
+/* ---------------------------------------------------------------- body */
+
+.setup__body {
+  padding: var(--s7) var(--s8);
+}
+
+.setup__note {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------- choices */
+
+.setup__choices {
+  display: grid;
+  gap: var(--s4);
+}
+
+/* Tiers are shorter, so they sit closer without reading as one block. */
+.setup__choices--tight {
+  gap: var(--s3);
+}
+
+/*
+ * A radio group that is legible without being a radio group.
+ *
+ * Real `<button aria-pressed>` rather than styled inputs: each option carries a title, a
+ * paragraph and an example path, and a label wrapping that much content makes the click
+ * target ambiguous, clicking the example ought to select the option, and with an input
+ * it depends on where the label ends.
+ */
+.setup__choice {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s5);
+  text-align: left;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.setup__choice:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+.setup__choice--on {
+  background: var(--accent-soft);
+  border-color: var(--border-accent);
+}
+
+.setup__choice--on:hover {
+  background: var(--accent-soft-hover);
+}
+
+.setup__choicetitle {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.setup__choice--on .setup__choicetitle {
+  color: var(--accent-text);
+}
+
+.setup__choicebody {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+
+.setup__choiceex {
+  margin-top: var(--s2);
+  color: var(--text-4);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- target */
+
+/*
+ * The deployment target, set apart from the tier picker above it.
+ *
+ * Inset rather than a fourth step: it appears and disappears with the physical tier
+ * checkbox, and a stepper whose length changes as you tick a box reads as a bug.
+ */
+.setup__target {
+  padding: var(--s5);
+  background: var(--bg-inset);
+  border-radius: var(--r-md);
+}
+
+/*
+ * Three across on a roomy card, stacked when narrow.
+ *
+ * `minmax(0, 1fr)` rather than `1fr`: a grid item's default `min-width: auto` refuses to
+ * shrink below its content, so a long placeholder like `acme-analytics-prod` would push
+ * the third column out of the card instead of wrapping.
+ */
+.setup__targetgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: var(--s4);
+}
+
+/* ---------------------------------------------------------------- foot */
+
+.setup__foot {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  padding: var(--s5) var(--s8) var(--s7);
+}
+
+/* Narrow enough that the card is the whole screen: drop its inset and chrome. */
+@media (max-width: 520px) {
+  .setup {
+    padding: 0;
+  }
+
+  .setup__card {
+    min-height: 100%;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .setup__head,
+  .setup__body,
+  .setup__steps,
+  .setup__foot {
+    padding-right: var(--s6);
+    padding-left: var(--s6);
+  }
+
+  /* The labels are the first thing to go; the numbers still show progress. */
+  .setup__step:not(.setup__step--on) {
+    font-size: 0;
+    gap: 0;
+  }
+}
+
+/*
+  The one-time invitation link.
+
+  Given a callout's weight on purpose. The token is returned exactly once, because the server
+  stores only a hash, so somebody who closes this without copying has to revoke and reissue. The
+  panel has to look like something that needs acting on rather than a confirmation to skim past.
+*/
+.invite-link {
+  margin-top: var(--s5);
+  padding: var(--s5);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn-line);
+  border-radius: var(--r-md);
+}
+.invite-link p { margin: 0 0 var(--s4); font-size: var(--fs-sm); }
+.invite-link .input { flex: 1; min-width: 0; }

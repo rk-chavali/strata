@@ -1,0 +1,41 @@
+name: Release please
+
+# Turns merged Conventional Commits into a version bump, a CHANGELOG entry and a tag.
+#
+# The whole monorepo is released as one version, deliberately. Eight workspaces, but exactly
+# one thing a user installs: the container image. Per-package versions would be eight numbers
+# describing one artefact, and nobody could answer "which version am I running".
+#
+# How it works: this opens and maintains a release pull request. Merging that PR is the act of
+# releasing. Until it is merged nothing is tagged, so an accidental merge to main cannot
+# publish anything.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Run release-please
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # A known and deliberate gap, written down rather than discovered later.
+          #
+          # GitHub does not fire workflows for events created with the default GITHUB_TOKEN, so
+          # the tag this pushes will NOT start release.yml, and no image or chart is published.
+          # Until a PAT with `contents: write` is stored as RELEASE_PLEASE_TOKEN, publish by
+          # running release.yml manually from the Actions tab after merging the release PR.
+          #
+          # The fallback is written this way so adding that secret is the only change needed:
+          # nothing else has to be edited for the chain to become fully automatic.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}

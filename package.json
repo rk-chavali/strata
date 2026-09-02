@@ -1,0 +1,32 @@
+{
+  "name": "strata",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Git-native data modelling tool for BigQuery and Dataform",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "lint": "oxlint apps packages --deny-warnings",
+    "lint:fix": "oxlint apps packages --fix",
+    "test": "pnpm -r test",
+    "test:coverage": "pnpm -r exec vitest run --coverage.enabled --coverage.provider=v8 --coverage.reporter=text-summary",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r exec rimraf dist",
+    "dev:server": "pnpm --filter @strata/server dev",
+    "dev:web": "pnpm --filter @strata/web dev",
+    "strata": "node packages/cli/dist/bin.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^2.1.8",
+    "oxlint": "^0.15",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.11"
+  }
+}

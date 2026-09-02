@@ -1,0 +1,70 @@
+strata {{ .Chart.AppVersion }} is installed as {{ include "strata.fullname" . }}.
+
+{{- if not .Values.model.repo }}
+
+  ⚠  No model repository is configured.
+
+     The pod will start but the UI will report "Cannot read the model repo", because
+     there is nothing at {{ .Values.model.path }} to read. Set one:
+
+       helm upgrade {{ .Release.Name }} ... --set model.repo=https://github.com/your-org/data-models.git
+{{- end }}
+
+{{- if not (include "strata.hasGithubToken" .) }}
+
+  ℹ  No GitHub token is configured.
+
+     Branch, commit and push still work; you get a prefilled compare link instead of an
+     automatically-opened pull request. A private model repository will also fail to
+     clone. Add one with --set github.token=... or point at your own Secret with
+     --set github.existingSecret=...
+{{- end }}
+
+{{- if and .Values.ingress.enabled (not .Values.auth.cookieSecure) }}
+
+  ⚠  Ingress is enabled but auth.cookieSecure is false.
+
+     If that ingress terminates TLS, set auth.cookieSecure=true. Leaving it false sends
+     the session cookie without the Secure attribute over a public HTTPS endpoint.
+{{- end }}
+
+{{- if and .Values.auth.cookieSecure (not .Values.ingress.enabled) }}
+
+  ⚠  auth.cookieSecure is true but no ingress is configured.
+
+     Over plain HTTP : which is what `kubectl port-forward` gives you : the browser
+     silently discards a Secure cookie. Sign-in will appear to succeed and then leave you
+     signed out. Set auth.cookieSecure=false for port-forward testing.
+{{- end }}
+
+{{- if not .Values.auth.enabled }}
+
+  ⚠  Authentication is DISABLED.
+
+     Anyone who can reach this Service can edit your models.
+{{- end }}
+
+Reach it:
+
+{{- if .Values.ingress.enabled }}
+  http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}
+{{- else if eq .Values.service.type "NodePort" }}
+  kubectl get svc {{ include "strata.fullname" . }} -n {{ .Release.Namespace }}
+{{- else }}
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "strata.fullname" . }} 8080:{{ .Values.service.port }}
+  open http://localhost:8080
+{{- end }}
+
+{{- if .Values.auth.enabled }}
+
+The first person to open it creates the administrator account. There is no default
+password.
+{{- end }}
+
+Watch it come up:
+
+  kubectl rollout status -n {{ .Release.Namespace }} deploy/{{ include "strata.fullname" . }}
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -f
+
+The first boot clones your model repository, so it may take a moment before the health
+check passes.

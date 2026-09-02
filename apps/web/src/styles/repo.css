@@ -1,0 +1,180 @@
+/*
+ * The repository view.
+ *
+ * A file tree and one file, filling the page body exactly, the same deal the canvas gets.
+ * This is the "console view" half of the diagram toggle, so it has to feel like a peer of
+ * the diagram rather than a panel that opened over it.
+ *
+ * Two columns here and not on the diagram, because the trade is different: a file tree is
+ * useful at 260px and a diagram is not. Splitting the *diagram* with a code pane would
+ * leave both unusable, which is why that is a toggle and this is a layout.
+ */
+
+.repo {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-surface);
+}
+
+/* ---------------------------------------------------------------- tree */
+
+.repo__tree {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+}
+
+.repo__search {
+  display: flex;
+  flex: none;
+  gap: var(--s3);
+  align-items: center;
+  padding: var(--s4) var(--s5);
+  color: var(--text-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.repo__search input {
+  width: 100%;
+  min-width: 0;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+.repo__scroll {
+  flex: 1;
+  min-height: 0;
+  padding: var(--s3) 0;
+  overflow-y: auto;
+}
+
+.repo__row {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  padding-right: var(--s4);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  text-align: left;
+}
+
+.repo__row:hover { background: var(--bg-hover); }
+
+.repo__row--on {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+.repo__row--dir { color: var(--text-1); font-weight: 500; }
+.repo__icon { flex: none; color: var(--text-4); }
+
+/*
+ * The git marker: one letter, in the vocabulary a diff already uses.
+ *
+ * `margin-left: auto` pins it to the right edge so the column of letters reads down the
+ * tree, which is how you spot what you changed without reading a single filename.
+ */
+.repo__mark {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.repo__mark--ok { color: var(--ok-text); }
+.repo__mark--warn { color: var(--warn-text); }
+.repo__mark--err { color: var(--err-text); }
+.repo__mark--accent { color: var(--accent-text); }
+
+.repo__foot {
+  flex: none;
+  margin: 0;
+  padding: var(--s4) var(--s5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ---------------------------------------------------------------- file */
+
+.repo__file {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.repo__head {
+  display: flex;
+  flex: none;
+  gap: var(--s4);
+  align-items: center;
+  padding: var(--s4) var(--s5);
+  border-bottom: 1px solid var(--border);
+}
+
+.repo__path {
+  min-width: 0;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.repo__dirty {
+  flex: none;
+  padding: 1px var(--s3);
+  color: var(--warn-text);
+  font-size: 10px;
+  background: var(--warn-soft);
+  border-radius: var(--r-full);
+}
+
+/*
+ * A plain textarea, deliberately.
+ *
+ * A syntax-highlighting editor is a real dependency with real weight, and the job here is
+ * "read this file, fix a line, save", not "author a thousand lines of YAML". `tab-size: 2`
+ * and a monospace face cover the actual need; anything more is a decision to make once
+ * somebody complains, not before.
+ */
+.repo__editor {
+  flex: 1;
+  min-height: 0;
+  padding: var(--s5) var(--s6);
+  color: var(--text-1);
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+  tab-size: 2;
+  background: var(--bg-canvas);
+  border: 0;
+  outline: none;
+  resize: none;
+  white-space: pre;
+  overflow: auto;
+}
+
+.repo__empty {
+  display: grid;
+  gap: var(--s4);
+  place-content: center;
+  justify-items: center;
+  height: 100%;
+  padding: var(--s8);
+  text-align: center;
+}
+
+.repo__empty p { max-width: 44ch; margin: 0; font-size: var(--fs-sm); }
+
+/* Below this the two columns cannot both be useful; the tree gives way. */
+@media (max-width: 720px) {
+  .repo { grid-template-columns: 1fr; }
+  .repo__tree { display: none; }
+}
