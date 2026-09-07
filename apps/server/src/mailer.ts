@@ -72,8 +72,19 @@ function assertHeaderSafe(value: string, field: string): string {
 }
 
 /** Not validation, just enough to catch the paste that obviously is not an address. */
+/*
+  The domain is matched label by label, and the labels exclude the dot.
+
+  The previous shape was `[^\s@,;<>]+\.[^\s@,;<>]+`, where both sides of the literal dot could
+  themselves match dots. That leaves the engine a choice about where the separator goes, so a
+  non-matching address costs quadratic backtracking rather than a linear scan. Excluding `.` from
+  the label class removes the choice entirely: there is exactly one way to split `example.com`.
+
+  It is also stricter in the two places that matter, and both are improvements. `a@b..com` and
+  `a@b.com.` used to pass, because a label was allowed to absorb the extra dot.
+*/
 export function looksLikeEmail(value: string): boolean {
-  return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(value.trim());
+  return /^[^\s@,;<>]+@[^\s@,;<>.]+(?:\.[^\s@,;<>.]+)+$/.test(value.trim());
 }
 
 // ---------------------------------------------------------------- the conversation

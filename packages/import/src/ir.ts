@@ -164,11 +164,21 @@ export function normaliseCardinality(raw: string | undefined): string | undefine
  * name; this is only for the id.
  */
 export function identifierise(name: string): string {
-  return (
-    name
-      .trim()
-      .replace(/[^\p{L}\p{N}]+/gu, "_")
-      .replace(/^_+|_+$/g, "")
-      .toLowerCase() || "unnamed"
-  );
+  /*
+    The underscore trim is a scan rather than `/^_+|_+$/g`.
+
+    That alternation is anchored at both ends with `+`, which backtracks quadratically on a long
+    run of underscores. This runs over names taken straight from an imported erwin export, so the
+    input is a file somebody hands us and its length is not ours to choose. The substitution above
+    is unbounded too, so a hundred-thousand-character name of pure punctuation becomes a
+    hundred-thousand-character run of underscores for this line to chew through.
+  */
+  const collapsed = name.trim().replace(/[^\p{L}\p{N}]+/gu, "_");
+
+  let start = 0;
+  let end = collapsed.length;
+  while (start < end && collapsed.charCodeAt(start) === 95) start += 1;
+  while (end > start && collapsed.charCodeAt(end - 1) === 95) end -= 1;
+
+  return collapsed.slice(start, end).toLowerCase() || "unnamed";
 }

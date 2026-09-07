@@ -420,7 +420,17 @@ export function renderAlterScript(script: AlterScript): string {
     lines.push(`-- ${change.message}`, change.sql, "");
   }
 
-  return `${lines.join("\n").replace(/\n+$/, "")}\n`;
+  /*
+    Trailing blank lines are trimmed by scanning, not by `/\n+$/`.
+
+    An anchored `+` retries from every position, so trimming a long run of newlines that does not
+    match is quadratic rather than linear. The content here is generated from model files that
+    arrive by pull request, so the length is not ours to bound.
+  */
+  const joined = lines.join("\n");
+  let end = joined.length;
+  while (end > 0 && joined.charCodeAt(end - 1) === 10) end -= 1;
+  return `${joined.slice(0, end)}\n`;
 }
 
 // ---------------------------------------------------------------- helpers

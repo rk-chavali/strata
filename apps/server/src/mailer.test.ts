@@ -132,6 +132,41 @@ describe("looksLikeEmail", () => {
       expect(looksLikeEmail(bad), bad).toBe(false);
     }
   });
+
+  it("still accepts the shapes real addresses come in", () => {
+    // Guarding the rewrite: the label-by-label form must not have narrowed what it accepts.
+    for (const good of [
+      "dana@example.com",
+      "dana.k@example.co.uk",
+      "dana+strata@example.com",
+      "d@a.io",
+      "dana_k@sub.domain.example.com",
+    ]) {
+      expect(looksLikeEmail(good), good).toBe(true);
+    }
+  });
+
+  it("rejects the doubled and trailing dots the old pattern let through", () => {
+    for (const bad of ["dana@example..com", "dana@example.com.", "dana@.example.com"]) {
+      expect(looksLikeEmail(bad), bad).toBe(false);
+    }
+  });
+
+  it("answers a long hostile input immediately rather than backtracking", () => {
+    /*
+      The reason the pattern changed. The old form let both sides of the literal dot match dots
+      too, so a long domain that ultimately fails had quadratically many ways to be split, and an
+      invitation address is supplied by whoever is filling in the form.
+
+      A time bound rather than a correctness assertion, because there is no output to compare:
+      the old pattern returns the same `false`, just far too slowly.
+    */
+    const hostile = `a@${"a.".repeat(5000)} `;
+
+    const started = performance.now();
+    expect(looksLikeEmail(hostile)).toBe(false);
+    expect(performance.now() - started).toBeLessThan(250);
+  });
 });
 
 describe("sending", () => {

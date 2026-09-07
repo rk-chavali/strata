@@ -2,6 +2,26 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
 /**
+ * Strip trailing slashes from a base URL, without a regex.
+ *
+ * Every call site here used to write `value.replace(/\/+$/, "")`, which reads as the obvious way
+ * to do it and is quadratic on the wrong input. A regex engine anchored with `$` retries the
+ * match from each position in turn, so a string of *n* trailing slashes that ends up not matching
+ * costs O(n²) rather than O(n). CodeQL flags it as `js/polynomial-redos`, and on the invite-link
+ * path it was right to: the base is built from the `Host` header when no cloud URL is configured,
+ * which is attacker-controlled up to Node's 16KB header limit.
+ *
+ * A backwards scan is O(n), obviously correct, and needs no argument about backtracking. Shared
+ * from here because `ssrf.ts` is already the module every outbound-URL caller imports, so this
+ * does not invent a dependency to save nine lines.
+ */
+export function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end -= 1;
+  return value.slice(0, end);
+}
+
+/**
  * Containment for outbound requests to operator-supplied URLs.
  *
  * strata makes ten outbound calls, and several of them point at a URL somebody typed into a form:

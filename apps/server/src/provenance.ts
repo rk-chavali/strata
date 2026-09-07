@@ -1,6 +1,6 @@
 import { history, type HistoryEntry } from "./git.js";
 import { ticketKey } from "./dispatch.js";
-import { safeFetch } from "./ssrf.js";
+import { safeFetch, trimTrailingSlashes } from "./ssrf.js";
 
 /**
  * Why does this object exist, and who asked for it?
@@ -153,7 +153,7 @@ async function resolveTicket(
   const key = ticketKey(jira.projectKeys, undefined, entry.subject);
   if (!key) return { ticketSource: "jira" };
 
-  const site = jira.baseUrl.replace(/\/+$/, "");
+  const site = trimTrailingSlashes(jira.baseUrl);
   const ticket: TicketRef = { key, url: `${site}/browse/${key}` };
 
   try {

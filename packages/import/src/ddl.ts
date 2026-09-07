@@ -3,21 +3,48 @@ import { emptyModel, type SourceColumn, type SourceEntity, type SourceModel } fr
 /**
  * Read `CREATE TABLE` statements.
  *
-* This is the universal migration path: every modelling tool can forward-engineer DDL, the
- * output is plain text, and it does not depend on which XML schema a given release used. It loses the conceptual and logical layers, a physical script has no concept
- * of a business term, which is exactly why it is one reader among several rather than
- * the only one.
+ * This is the universal migration path: every modelling tool can forward-engineer DDL, the
+ * output is plain text, and it does not depend on which XML schema a given release used. It
+ * loses the conceptual and logical layers, a physical script has no concept of a business
+ * term, which is exactly why it is one reader among several rather than the only one.
  *
  * Written as a scanner rather than a regex over the whole file. Column definitions
  * contain commas inside `NUMERIC(18, 2)` and `STRUCT<a INT64, b STRING>`, so splitting
  * on commas is wrong in a way that only shows up on the types people actually use.
  */
 
+/**
+ * The longest single statement this will run its patterns over.
+ *
+ * The two patterns below both contain an unbounded `[\s\S]*?` or `[^)]*` next to further
+ * alternatives, so a statement that *starts* like a match and then never completes one costs
+ * quadratic backtracking. A DDL script is a file somebody uploads, so the length is theirs to
+ * choose, not ours.
+ *
+ * A ceiling is the right fix here rather than rewriting the patterns. These readers are the
+ * least-tested part of the importer, and a regex rewrite that subtly changes what parses is a
+ * worse outcome than refusing one absurd statement. 1MB is far past any real `CREATE TABLE`:
+ * a thousand columns is roughly 100KB.
+ */
+const MAX_STATEMENT_BYTES = 1024 * 1024;
+
 export function readDdl(sql: string): SourceModel {
   const model = emptyModel("ddl");
   const statements = splitStatements(stripComments(sql));
 
   for (const statement of statements) {
+    if (statement.length > MAX_STATEMENT_BYTES) {
+      model.diagnostics.push({
+        severity: "warning",
+        code: "ddl/statementTooLarge",
+        message:
+          `Skipped a statement of ${Math.round(statement.length / 1024)}KB, above the ` +
+          `${MAX_STATEMENT_BYTES / 1024 / 1024}MB limit for one statement. ` +
+          "A statement this size is almost certainly not a table definition.",
+      });
+      continue;
+    }
+
     const table = /^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:EXTERNAL\s+|TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s(]+)\s*\(/i.exec(
       statement,
     );

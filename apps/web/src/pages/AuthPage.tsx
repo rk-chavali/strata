@@ -285,7 +285,18 @@ function InviteMode({ onSwitch }: { onSwitch: () => void }): JSX.Element {
       setError("that does not look like an invitation link. It should contain a # near the end.");
       return;
     }
-    // Straight to the redemption screen, which is the same page the link itself opens.
+    /*
+      Straight to the redemption screen, which is the same page the link itself opens.
+
+      Interpolated raw, deliberately. The leading `/invite#` fixes both the scheme and the origin,
+      so a pasted value cannot reach `javascript:` or another host: it can only land in a fragment
+      on this page. CodeQL reads this as `js/xss-through-dom` because it sees pasted text reaching
+      `location.assign`, and that alert is dismissed rather than silenced with an encode.
+
+      Encoding here would be worse than useless. `InvitePage` reads the fragment with a plain
+      `hash.replace(/^#/, "")` and never decodes, so the two files would have to agree about
+      encoding forever to keep redemption working, in exchange for no security at all.
+    */
     window.location.assign(`/invite#${token}`);
   }
 

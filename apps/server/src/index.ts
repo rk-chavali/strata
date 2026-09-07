@@ -148,7 +148,7 @@ import { AuditLog, type AuditAction } from "./audit.js";
 import { LoginThrottle, clientKey } from "./throttle.js";
 import { corsOptions, securityHeaders } from "./security.js";
 import { errorHandler, log, requestLogger, respondWithServerError } from "./logging.js";
-import { BlockedUrlError, assertSafeUrl } from "./ssrf.js";
+import { BlockedUrlError, assertSafeUrl, trimTrailingSlashes } from "./ssrf.js";
 import { writeArchive } from "./archive.js";
 import {
   advise,
@@ -1542,7 +1542,7 @@ app.delete(
  */
 function inviteLink(req: express.Request, token: string): string {
   const base = CLOUD_BASE_URL ?? `${req.protocol}://${req.get("host") ?? "localhost:4000"}`;
-  return `${base.replace(/\/+$/, "")}/invite#${token}`;
+  return `${trimTrailingSlashes(base)}/invite#${token}`;
 }
 
 
@@ -2682,7 +2682,7 @@ app.post(
           and so the sync can be exercised end to end against a stub without reaching Google.
         */
         ...(process.env.STRATA_GCP_CATALOG_BASE
-          ? { base: process.env.STRATA_GCP_CATALOG_BASE.replace(/\/+$/, "") }
+          ? { base: trimTrailingSlashes(process.env.STRATA_GCP_CATALOG_BASE) }
           : {}),
       });
       res.json({ listing, proposal: proposeMapping(workspace.graph, listing) });

@@ -11,7 +11,7 @@ import {
 import { summarySentence, type ChangeSummary } from "./changes.js";
 import type { DeliveryLog, Delivery } from "./deliveries.js";
 import type { SecretStore } from "./secrets.js";
-import { safeFetch } from "./ssrf.js";
+import { safeFetch, trimTrailingSlashes } from "./ssrf.js";
 
 /**
  * Firing the integrations.
@@ -334,7 +334,7 @@ async function publishConfluence(
     };
   }
 
-  const api = `${(baseUrl ?? "").replace(/\/+$/, "")}/rest/api/content/${encodeURIComponent(pageId)}`;
+  const api = `${trimTrailingSlashes(baseUrl ?? "")}/rest/api/content/${encodeURIComponent(pageId)}`;
   const authorization = `Basic ${Buffer.from(`${email}:${token}`).toString("base64")}`;
 
   /*
@@ -462,7 +462,7 @@ async function commentJira(
     };
   }
 
-  const api = `${(settings.baseUrl ?? "").replace(/\/+$/, "")}/rest/api/3/issue/${key}/comment`;
+  const api = `${trimTrailingSlashes(settings.baseUrl ?? "")}/rest/api/3/issue/${key}/comment`;
   const authorization = `Basic ${Buffer.from(`${settings.email}:${secrets.token}`).toString("base64")}`;
 
   // Atlassian Document Format, which is what the v3 API accepts. Plain strings are rejected.

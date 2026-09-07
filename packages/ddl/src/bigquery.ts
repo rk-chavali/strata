@@ -390,6 +390,26 @@ export function generateModelDdl(
     }
   }
 
+  /**
+   * Swap the filename portion of the table path for the index's own name.
+   *
+   * Was `tablePath.replace(/\{name\}[^\/]*$/, indexName)`, which is the same thing and is
+   * quadratic on a path that has no match: an anchored `[^\/]*$` is retried from every position.
+   * The path comes from `strata.config.yaml`, which arrives by pull request.
+   *
+   * Deliberately identical in behaviour, including the awkward part: `replace` with a
+   * non-global pattern takes the *first* match, so this is the first `{name}` in the final
+   * segment rather than the last, and a path with no `{name}` in that segment is left alone.
+   */
+  function indexPathFrom(path: string, indexName: string): string {
+    const slash = path.lastIndexOf("/");
+    const directory = slash === -1 ? "" : path.slice(0, slash + 1);
+    const filename = path.slice(slash + 1);
+
+    const marker = filename.indexOf("{name}");
+    return marker === -1 ? path : directory + filename.slice(0, marker) + indexName;
+  }
+
   if (options.index !== false && files.length > 0) {
     /**
      * One index per model, named after it once there is more than one.
@@ -400,7 +420,7 @@ export function generateModelDdl(
      */
     const indexName = options.indexSuffix ? `README.${options.indexSuffix}.md` : "README.md";
     files.push({
-      path: render(tablePath.replace(/\{name\}[^/]*$/, indexName), { dataset: "", name: "", layer: "" }),
+      path: render(indexPathFrom(tablePath, indexName), { dataset: "", name: "", layer: "" }),
       contents: buildIndex(modelName, tables, files),
       objectId: model.id,
       kind: "index",

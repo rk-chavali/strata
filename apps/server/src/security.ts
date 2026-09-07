@@ -1,5 +1,6 @@
 import type { RequestHandler } from "express";
 import type { CorsOptions } from "cors";
+import { trimTrailingSlashes } from "./ssrf.js";
 
 /**
  * Response headers and cross-origin policy.
@@ -31,7 +32,7 @@ export function allowedOrigins(): string[] {
   if (!raw) return [];
   return raw
     .split(",")
-    .map((origin) => origin.trim().replace(/\/+$/, ""))
+    .map((origin) => trimTrailingSlashes(origin.trim()))
     .filter(Boolean);
 }
 
@@ -49,7 +50,8 @@ export function corsOptions(origins = allowedOrigins()): CorsOptions {
         return;
       }
 
-      const normalised = requestOrigin.replace(/\/+$/, "");
+      // The `Origin` header is attacker-controlled, so this one is the reason the helper exists.
+      const normalised = trimTrailingSlashes(requestOrigin);
       if (origins.includes(normalised)) {
         callback(null, true);
         return;

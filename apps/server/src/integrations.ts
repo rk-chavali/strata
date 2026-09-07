@@ -21,7 +21,7 @@
  * decision; putting the token in the config would commit it.
  */
 
-import { safeFetch } from "./ssrf.js";
+import { safeFetch, trimTrailingSlashes } from "./ssrf.js";
 
 /** When a provider can act. */
 export type IntegrationEvent =
@@ -305,7 +305,7 @@ async function testAtlassian(
     return { ok: false, message: "Site URL, email and API token are all required." };
   }
 
-  const url = `${baseUrl.replace(/\/+$/, "")}${path}`;
+  const url = `${trimTrailingSlashes(baseUrl)}${path}`;
   const response = await safeFetch(url, {
     headers: {
       // Atlassian Cloud uses basic auth with the email and an API token, not a bearer token.

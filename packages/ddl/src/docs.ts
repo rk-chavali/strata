@@ -286,9 +286,20 @@ function renderMarkdownIndex(models: Model[], options: DocsOptions): string {
   return lines.join("\n") + "\n";
 }
 
-/** A markdown cell cannot hold a raw pipe or newline without breaking the table. */
+/**
+ * A markdown cell cannot hold a raw pipe or newline without breaking the table.
+ *
+ * **The backslash is escaped first, and the order is the whole point.** Escaping only the pipe
+ * turns a description containing `\|` into `\\|`, which markdown reads as an escaped backslash
+ * followed by a live column separator, so the cell that was being protected splits the row
+ * anyway. Doing the backslash first makes `\|` into `\\\|`: a literal backslash, then an escaped
+ * pipe.
+ *
+ * Column descriptions arrive by pull request, so this is the boundary between what somebody
+ * wrote and a generated document other people read.
+ */
 function escapeCell(text: string): string {
-  return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+  return text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
 function anchor(name: string): string {
