@@ -16,7 +16,11 @@ A data modelling tool built on two decisions that shape everything else:
    a pull request that breaks a naming standard or a referential rule cannot merge. A
    desktop-only tool gets bypassed the first time someone is busy.
 
-![A physical model: dim_customer and fct_order, with the primary keys and the relationship between them](docs/assets/screenshots/model-diagram.png)
+![The physical model of a shop warehouse on the diagram canvas: dim_customer and fct_order in crow's foot notation, with primary keys marked, a pii badge on email_address, and the relationship read as "is referenced by"](docs/assets/screenshots/model-diagram.png)
+
+The same model, as the files it actually is:
+
+![The repository view, showing the workspace file tree and the YAML source of the customer_id domain](docs/assets/screenshots/repository-view.png)
 
 ## Try it
 

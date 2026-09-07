@@ -140,6 +140,53 @@ jobs:
           done
           echo "$TAG carries both linux/amd64 and linux/arm64"
 
+  release:
+    name: Create the GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: merge
+
+    if: github.ref_type == 'tag'
+
+    # Raised only for this job. Everything else here needs read, and a token that can write to
+    # the repository should be scoped to the one step that has to.
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          NOTES="$(cat <<EOF
+          ## Install
+
+          \`\`\`bash
+          docker run --rm -p 4000:4000 -e STRATA_WORKSPACE=examples/quickstart ${REGISTRY}/${IMAGE}:${TAG#v}
+          \`\`\`
+
+          \`\`\`bash
+          helm install strata oci://${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/charts/strata --version ${TAG#v}
+          \`\`\`
+
+          Published for \`linux/amd64\` and \`linux/arm64\`.
+          EOF
+          )"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes "$NOTES"
+          else
+            gh release create "$TAG" --title "$TAG" --notes "$NOTES" --generate-notes
+          fi
+
   chart:
     name: Publish the Helm chart
     runs-on: ubuntu-latest
