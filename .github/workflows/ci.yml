@@ -210,6 +210,37 @@ jobs:
       - name: Audit production dependencies
         run: pnpm audit --prod --audit-level high
 
+  workflows:
+    name: Lint the workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # A workflow file is the one thing here that nothing else checks.
+    #
+    # `release.yml` is only exercised by pushing a tag, so a mistake in it is invisible until the
+    # moment you are trying to ship. That is exactly what happened: an invalid expression made
+    # GitHub reject the whole file, and two release runs failed in 0s with the diagnosis buried
+    # in a run annotation rather than in any log.
+    #
+    # YAML validity is not enough to catch it either. The file parsed cleanly as YAML and was
+    # still not a valid workflow. actionlint knows the Actions schema, checks `${{ }}` expressions,
+    # and runs shellcheck over every `run:` block, which is the combination that finds this class.
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Pinned by digest, not piped from a URL.
+      #
+      # The upstream install instructions are `bash <(curl ...)` against a script on `main`, which
+      # is precisely the supply-chain shape this repository pins every other action to a SHA to
+      # avoid. A digest is immutable, so this runs the same linter next year as today.
+      - name: Lint every workflow
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 \
+            -color
+
   model:
     name: Validate the example workspace
     runs-on: ubuntu-latest

@@ -1,27 +1,8 @@
 name: Release
 
-# Publishes the artefacts a self-hoster actually consumes: a container image and a Helm chart.
-#
-# **This is what makes the documentation true.** Until it existed, every self-hosting instruction
-# assumed you had cloned this repository: `docker compose up` needs the compose file from here,
-# `helm install ./deploy/helm/strata` needs the chart from here, and `ghcr.io/...` pointed at an
-# image nobody had ever pushed. That is contributor documentation, not self-hosting documentation.
-#
-# Tag a release and both artefacts appear at a public address a stranger can pull.
 on:
   push:
-    # A tag is a release: it publishes the semver tags and moves `latest`.
     tags: ["v*"]
-  # An image of unreleased work, on demand.
-  #
-  # This used to also fire on every push to `main`, so that an image of current main always
-  # existed and nobody had to clone the repo to try unreleased work. The intent was right and
-  # the cost was not: each push rebuilt for two architectures with arm64 under QEMU emulation,
-  # minutes at a time, for a docs typo. It also published a permanent `sha-` tag per commit,
-  # which is most of how this package reached 65 versions.
-  #
-  # Dispatching keeps the capability and pays for it only when someone wants it. The image
-  # that appears is still `edge`, never `latest`.
   workflow_dispatch:
 
 permissions:
@@ -33,31 +14,12 @@ env:
   IMAGE: ${{ github.repository }}
 
 jobs:
-  # Each architecture is built on its own hardware, then the two are stitched into one
-  # multi-arch tag by `merge` below.
-  #
-  # **This used to be one runner emulating arm64 through QEMU, and it was not reliable.** The
-  # arm64 leg ran Node under emulation, and `pnpm install` intermittently died with
-  # `qemu: uncaught target signal 4 (Illegal instruction) - core dumped`, leaving the job hung
-  # until the 60 minute timeout. Same commit, same workflow, publishes one run and hangs the
-  # next: v0.2.0 went out fine and v0.2.1 stalled on the identical Dockerfile.
-  #
-  # GitHub gives public repositories free native `ubuntu-24.04-arm` runners, so the emulation
-  # buys nothing any more. Building each platform where it is native removes the crash entirely
-  # and is several times faster, because arm64 no longer runs a whole toolchain through an
-  # instruction translator.
-  #
-  # arm64 is not optional, whatever it costs: Apple Silicon laptops and the free ARM tiers at
-  # Oracle and AWS Graviton are all arm64, and an amd64-only image fails on them with an error
-  # that reads as a broken download rather than a wrong architecture.
   build:
     name: Build (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
 
     strategy:
-      # One architecture failing should not cancel the other: knowing whether the crash is
-      # arm-specific or affects both is most of the diagnosis.
       fail-fast: false
       matrix:
         include:
@@ -82,20 +44,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Labels only here. The human-readable tags are applied once, by `merge`, to the combined
-      # manifest: a per-architecture job that tagged `:latest` would have the two runners racing
-      # to own the same tag, and whichever finished last would win with a single-arch image.
       - name: Work out the labels
         id: meta
         uses: docker/metadata-action@b2391d37b4157fa4aa2e118d643f417910ff3242 # v3
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE }}
 
-      # Pushed by digest, with no tag at all.
-      #
-      # Each runner uploads an untagged image and reports its digest. `merge` then builds one
-      # manifest list pointing at both, and applies the real tags to that. This is the only way
-      # to get a genuine multi-arch tag out of two separate machines.
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
@@ -104,23 +58,15 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
-          # Reported by /api/health/detail, so an operator can prove which build is live without
-          # trusting a tag that may have moved.
           build-args: |
             STRATA_COMMIT=${{ github.sha }}
-          # Scoped per architecture. A shared cache key would have the two jobs overwriting each
-          # other's layers, and the arm64 job restoring amd64 binaries it cannot execute.
           cache-from: type=gha,scope=${{ matrix.slug }}
           cache-to: type=gha,mode=max,scope=${{ matrix.slug }}
 
-      # The digest travels to `merge` as a file named after itself, so the two jobs cannot collide
-      # and `merge` does not need to know which architectures ran.
       - name: Hand the digest to the merge job
         run: |
           set -euo pipefail
           mkdir -p /tmp/digests
-          # Stripped in the shell, not in a `${{ }}` expression: GitHub expressions have no
-          # parameter expansion, so `${{ ... #sha256: }}` is a syntax error rather than a trim.
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
 
@@ -156,11 +102,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Tags come from the git tag: v1.2.3 produces 1.2.3, 1.2 and 1, plus latest.
-      #
-      # The partial tags matter for operators. Pinning to `1` gets patches automatically and never
-      # a breaking change, which is the upgrade policy most people actually want and cannot express
-      # if the only tag is the exact version.
       - name: Work out the tags
         id: meta
         uses: docker/metadata-action@b2391d37b4157fa4aa2e118d643f417910ff3242 # v3
@@ -170,29 +111,18 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            # Unreleased work, published only by a manual dispatch.
             type=raw,value=edge,enable={{is_default_branch}}
-          # `latest` follows the newest *release*, never the newest commit.
-          #
-          # This is the default `latest=auto`, stated rather than left implicit because the rule
-          # matters: metadata-action applies `latest` only when a semver pattern above produced a
-          # tag, so a push to main cannot move it. An operator who pinned `latest` gets released
-          # code, which is the only thing that pin can reasonably mean.
           flavor: |
             latest=auto
 
-      # One manifest list per tag, pointing at both per-architecture digests. `docker pull` then
-      # picks the right one for the machine doing the pulling.
       - name: Create the multi-arch manifest
         working-directory: /tmp/digests
         run: |
+          # shellcheck disable=SC2046
           docker buildx imagetools create \
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}') \
             $(printf '${{ env.REGISTRY }}/${{ env.IMAGE }}@sha256:%s ' *)
 
-      # Proves the published tag really is multi-arch before anybody pulls it. An amd64-only
-      # image is exactly the failure this whole split exists to prevent, and it is invisible
-      # until an Apple Silicon or Oracle ARM user hits it.
       - name: Check both architectures are in the manifest
         run: |
           set -euo pipefail
@@ -212,15 +142,8 @@ jobs:
     name: Publish the Helm chart
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # `merge`, not `build`: the chart's summary tells the reader to pull a tag, and that tag does
-    # not exist until the manifest list is created.
     needs: merge
 
-    # Tags and manual runs only.
-    #
-    # A chart has one version field and no equivalent of `edge`, so publishing on every push to
-    # main would mean overwriting 0.0.0-dev continuously: a version number that silently means
-    # something different each time, which is worse than not publishing at all.
     if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -236,26 +159,17 @@ jobs:
             | helm registry login ${{ env.REGISTRY }} \
                 --username ${{ github.actor }} --password-stdin
 
-      # Worked out once and shared, because the summary below has to name what was actually
-      # published. Recomputing it there got this wrong on a manual run: with no tag,
-      # GITHUB_REF_NAME is the branch, so the summary told the reader to pull `:main` while
-      # the chart had gone out as 0.0.0-dev and the image as `latest`.
       - name: Work out the version
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           IMAGE_TAG="$VERSION"
           if [ "$GITHUB_REF_TYPE" != "tag" ]; then
             VERSION="0.0.0-dev"
-            # `edge`, not `latest`. Only a tag moves `latest`, so telling a reader to pull it
-            # here would point them at the last release rather than at what just built.
             IMAGE_TAG="edge"
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
 
-      # Published as an OCI artefact to the same registry as the image, rather than as a chart
-      # repository on GitHub Pages. One registry, one set of credentials, one thing to keep alive,
-      # and `helm install` speaks OCI natively now.
       - name: Package and push
         run: |
           helm package deploy/helm/strata \
@@ -267,8 +181,10 @@ jobs:
 
       - name: Say how to install it
         run: |
-          echo "### Strata ${VERSION} published" >> "$GITHUB_STEP_SUMMARY"
-          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
-          echo "docker pull ${REGISTRY}/${IMAGE}:${IMAGE_TAG}" >> "$GITHUB_STEP_SUMMARY"
-          echo "helm install strata oci://${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/charts/strata --version ${VERSION}" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Strata ${VERSION} published"
+            echo '```bash'
+            echo "docker pull ${REGISTRY}/${IMAGE}:${IMAGE_TAG}"
+            echo "helm install strata oci://${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/charts/strata --version ${VERSION}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
