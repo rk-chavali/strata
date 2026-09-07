@@ -1,0 +1,3085 @@
+/*
+ * The studio: a canvas with panels docked around it.
+ *
+ * Three regions, and the layout is deliberately a grid rather than nested flex. The grid's
+ * middle column is `minmax(0, 1fr)`, which is what stops a wide diagram from pushing the
+ * panels off screen, a flex child with content wider than its box grows past its basis
+ * unless every ancestor sets `min-width: 0`, and there are five ancestors between here and
+ * React Flow.
+ *
+ * Everything here is scoped under `.studio`. The panels are not general-purpose furniture:
+ * they know they sit beside a canvas, and one of them assumes the canvas is the thing being
+ * described.
+ */
+
+.studio {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-sunken);
+}
+
+/*
+ * The middle column: canvas above, diagnostics docked below.
+ *
+ * `min-width: 0` and `min-height: 0` are both required. Without them this track sizes to
+ * its content, a 3000px-wide diagram, and the right-hand panel leaves the viewport.
+ */
+.studio__centre {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.studio__canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* While a panel is being dragged, nothing else should take the pointer or show a caret. */
+body.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.is-resizing * {
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- panel shell */
+
+.spanel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-surface);
+  /* Flex-basis, not width: the inline `width` style is the source of truth, and `flex:none`
+     stops the panel from being squeezed when the canvas has a lot to show. */
+  flex: none;
+}
+
+.spanel--left {
+  border-right: 1px solid var(--border);
+}
+
+.spanel--right {
+  border-left: 1px solid var(--border);
+}
+
+.spanel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex: none;
+  height: 32px;
+  padding: 0 var(--s3) 0 var(--s4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.spanel__icon {
+  color: var(--text-3);
+  flex: none;
+}
+
+.spanel__title {
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.spanel__sticky {
+  flex: none;
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.spanel__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/*
+ * The resize grip.
+ *
+ * 7px wide but visually 1px: a 1px hit target is unusable with a mouse, so the strip is
+ * transparent and only the hairline inside it is painted. Sitting on the inner edge, the
+ * one against the canvas, because that is the boundary being moved.
+ */
+.spanel__grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: col-resize;
+  z-index: var(--z-canvas-ui);
+}
+
+.spanel--left .spanel__grip { right: -3px; }
+.spanel--right .spanel__grip { left: -3px; }
+
+.spanel__grip::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.spanel__grip:hover::after,
+.spanel__grip:focus-visible::after {
+  background: var(--accent);
+}
+
+.spanel__grip:focus-visible {
+  outline: none;
+}
+
+/* ---------------------------------------------------------------- collapsed spine */
+
+.spine {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s4);
+  width: 28px;
+  padding: var(--s5) 0;
+  border: 0;
+  background: var(--bg-raised);
+  color: var(--text-3);
+  cursor: pointer;
+  /* Bottom-to-top so the label reads upward on the left rail and the icon lands at the
+     top, next to the panel it will open. */
+  writing-mode: vertical-rl;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.spine--left {
+  border-right: 1px solid var(--border);
+  transform: rotate(180deg);
+}
+
+.spine--right {
+  border-left: 1px solid var(--border);
+}
+
+.spine:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.spine__label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.spine__badge {
+  padding: 1px 4px;
+  border-radius: var(--r-xs);
+  background: var(--warn);
+  color: var(--text-on-solid);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  /* Cancel the parent's vertical writing mode so a two-digit count is not stacked. */
+  writing-mode: horizontal-tb;
+}
+
+/* ---------------------------------------------------------------- tree */
+
+.tree {
+  padding: var(--s2) 0 var(--s6);
+  font-size: var(--fs-sm);
+}
+
+.tree__empty {
+  padding: var(--s6) var(--s5);
+  margin: 0;
+}
+
+.tree__group + .tree__group {
+  margin-top: var(--s2);
+}
+
+.tree__grouphead {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s3) var(--s4);
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+  text-align: left;
+}
+
+.tree__grouphead:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+
+.tree__grouplabel {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tree__count {
+  padding: 0 4px;
+  border-radius: var(--r-xs);
+  background: var(--bg-inset);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.tree__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 24px;
+  padding: 0 var(--s4) 0 var(--s3);
+  color: var(--text-1);
+  cursor: default;
+  user-select: none;
+}
+
+.tree__row:hover {
+  background: var(--bg-hover);
+}
+
+/*
+ * Selection reads as a filled row with an accent spine, not as a tint alone.
+ *
+ * A background tint on its own is ambiguous next to the hover state, and hover follows the
+ * pointer while selection does not, so with only a tint the two are indistinguishable the
+ * moment the mouse is over the selected row.
+ */
+.tree__row.is-selected {
+  background: var(--bg-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.tree__row:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.tree__twist {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.tree__twist:hover:not(:disabled) {
+  background: var(--bg-active);
+  color: var(--text-1);
+}
+
+.tree__indent {
+  flex: none;
+  width: 14px;
+}
+
+.tree__kind {
+  flex: none;
+  color: var(--text-3);
+}
+
+.tree__name {
+  min-width: 0;
+  flex: 1;
+}
+
+.tree__row--member {
+  min-height: 22px;
+  color: var(--text-2);
+}
+
+.tree__type {
+  flex: none;
+  max-width: 40%;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+/*
+ * The key flag sits in a fixed-width gutter, so column names align whether or not the
+ * column is a key. Without the reserved width the list ragged-lefts by two characters and
+ * stops being scannable, which is the only reason to have a tree at all.
+ */
+.tree__flag {
+  flex: none;
+  width: 18px;
+  color: var(--text-4);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.02em;
+}
+
+.tree__flag--pk { color: var(--accent); }
+.tree__flag--fk { color: var(--text-3); }
+
+.tree__sensitive {
+  flex: none;
+  color: var(--warn-text);
+}
+
+.tree__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 0 var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+}
+
+.tree__search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.tree__searchicon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.tree__clear {
+  display: flex;
+  flex: none;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.tree__clear:hover {
+  background: var(--bg-active);
+  color: var(--text-1);
+}
+
+/* A borderless input, for when the container already draws the box. */
+.input--flush {
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.input--flush:focus,
+.input--flush:hover:not(:disabled):not(:focus) {
+  border: 0;
+  box-shadow: none;
+}
+
+.input--sm {
+  min-height: 24px;
+  padding: var(--s1) var(--s3);
+  font-size: var(--fs-sm);
+}
+
+/* ---------------------------------------------------------------- properties */
+
+.props {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--fs-sm);
+}
+
+.props__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s4);
+  height: 100%;
+  padding: var(--s8) var(--s6);
+  color: var(--text-3);
+  text-align: center;
+}
+
+.props__empty p {
+  margin: 0;
+}
+
+.props__ident {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5) var(--s2);
+}
+
+.props__kind {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.props__busy {
+  margin-left: auto;
+}
+
+.props__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3) var(--s5);
+}
+
+.props__label {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+}
+
+.props__hint {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+}
+
+.props__section {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--s3);
+}
+
+.props__sectionhead {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s4) var(--s5);
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.props__sectionhead:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.props__sectionbody {
+  padding-bottom: var(--s3);
+}
+
+.props__members {
+  display: flex;
+  flex-direction: column;
+  /* Capped so a 60-column table does not push everything below it off the panel. The
+     selected column's editor is what you came for, and it renders under this list. */
+  max-height: 280px;
+  overflow: auto;
+}
+
+.props__member {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 22px;
+  padding: 0 var(--s5) 0 var(--s4);
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--fs-sm);
+}
+
+.props__member:hover {
+  background: var(--bg-hover);
+}
+
+.props__member.is-selected {
+  background: var(--bg-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--text-1);
+}
+
+.props__membername {
+  min-width: 0;
+  flex: 1;
+}
+
+.props__membertype {
+  flex: none;
+  max-width: 45%;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.props__memberfoot,
+.props__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s5);
+}
+
+.props__foot {
+  border-top: 1px solid var(--border);
+  margin-top: var(--s3);
+}
+
+.props__flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.props__refs {
+  display: flex;
+  flex-direction: column;
+}
+
+.props__ref {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 24px;
+  padding: 0 var(--s5);
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--fs-sm);
+}
+
+.props__ref:hover {
+  background: var(--bg-hover);
+}
+
+.props__refgo {
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+.props__shape {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: 0 var(--s5);
+  line-height: var(--lh-normal);
+}
+
+/* ---------------------------------------------------------------- diagnostics dock */
+
+.dock {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.dock.is-open {
+  /* A third of the canvas, capped. Enough to read six rows without the diagram becoming a
+     letterbox, the model is still the thing being worked on. */
+  height: min(34%, 260px);
+}
+
+.dock__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  flex: none;
+  height: 28px;
+  padding: 0 var(--s3) 0 var(--s4);
+}
+
+.dock__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.dock__toggle:hover {
+  color: var(--text-1);
+}
+
+.dock__title {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.dock__counts {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.dock__count {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 1px var(--s3);
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  background: var(--bg-inset);
+  cursor: pointer;
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-semibold);
+}
+
+.dock__count--error { color: var(--err-text); }
+.dock__count--warning { color: var(--warn-text); }
+.dock__count--info { color: var(--text-3); }
+
+.dock__count:hover,
+.dock__count.is-active {
+  border-color: currentcolor;
+}
+
+.dock__clean {
+  color: var(--ok-text);
+}
+
+.dock__clear {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.dock__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.dock__empty {
+  padding: var(--s6);
+  margin: 0;
+}
+
+.dock__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.dock__row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dock__row:hover {
+  background: var(--bg-hover);
+}
+
+.dock__row:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.dock__row td {
+  padding: var(--s3) var(--s4);
+  vertical-align: top;
+}
+
+.dock__sev {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: 88px;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.dock__row--error .dock__sev { color: var(--err-text); }
+.dock__row--warning .dock__sev { color: var(--warn-text); }
+.dock__row--info .dock__sev { color: var(--text-3); }
+
+.dock__obj {
+  width: 180px;
+  max-width: 180px;
+  font-weight: var(--fw-medium);
+}
+
+.dock__msg {
+  color: var(--text-2);
+  line-height: var(--lh-normal);
+}
+
+.dock__code {
+  width: 160px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+
+/*
+ * Below 1100px the panels stop earning their width.
+ *
+ * Two 240px docks plus a canvas leaves under 600px for the diagram, and an entity box is
+ * 260px, so the diagram shows two boxes and a scrollbar. Collapsing to spines keeps both
+ * panels reachable without making the canvas useless.
+ */
+@media (width <= 1100px) {
+  .spanel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: var(--z-canvas-popover);
+    box-shadow: var(--shadow-3);
+  }
+
+  .spanel--left { left: 28px; }
+  .spanel--right { right: 28px; }
+}
+
+/* ---------------------------------------------------------------- data dictionary */
+
+/*
+ * A grid, not a card list.
+ *
+ * The whole value of this screen is density: a hundred fields visible at once, so gaps in
+ * documentation and classification read as gaps rather than as something you have to go
+ * counting. Every rule below is in service of fitting more rows on screen while keeping
+ * them legible, 24px rows, one border weight, no card chrome.
+ */
+
+.dict {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.dict__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s5);
+  flex-wrap: wrap;
+  padding-bottom: var(--s5);
+}
+
+.dict__search {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex: 1;
+  min-width: 220px;
+  max-width: 380px;
+  padding: 0 var(--s4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+  color: var(--text-3);
+}
+
+.dict__search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.dict__coverage {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+}
+
+.dict__coveragebar {
+  display: block;
+  width: 96px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+
+.dict__coveragefill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--ok);
+  transition: width 200ms ease;
+}
+
+.dict__coveragetext {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dict__empty {
+  padding: var(--s8) 0;
+}
+
+.dict__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-surface);
+}
+
+.dict__table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--fs-sm);
+}
+
+/*
+ * The column header sticks to the top of the scroller, and the group header sticks under
+ * it. Two sticky layers is the whole reason this is one table rather than a table per
+ * object: with separate tables the column widths would be negotiated independently and no
+ * two groups would line up.
+ */
+.dict__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.dict__grouprow th {
+  position: sticky;
+  /* Exactly the header's height, so the group name parks under it rather than behind it. */
+  top: 25px;
+  z-index: calc(var(--z-sticky) - 1);
+  padding: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-inset);
+  text-align: left;
+}
+
+.dict__groupname {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s3) var(--s4);
+  border: 0;
+  background: none;
+  color: var(--text-1);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.dict__groupname:hover {
+  color: var(--accent);
+}
+
+.dict__dataset {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-normal);
+}
+
+.dict__row td {
+  padding: 0 var(--s4);
+  height: 26px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.dict__row:hover td {
+  background: var(--bg-hover);
+}
+
+/* A row mid-save is dimmed and inert, so a second edit cannot race the first. */
+.dict__row.is-busy {
+  opacity: 0.55;
+}
+
+.dict__field {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.dict__fieldname {
+  font-weight: var(--fw-medium);
+}
+
+.dict__c-name { width: 24%; }
+.dict__c-type { width: 15%; color: var(--text-2); font-size: var(--fs-2xs); }
+.dict__c-null { width: 48px; text-align: center; }
+.dict__c-desc { width: 30%; }
+.dict__c-sens { width: 130px; }
+.dict__c-cats { width: 190px; }
+
+.dict__from {
+  margin-left: var(--s3);
+  padding: 0 3px;
+  border-radius: var(--r-xs);
+  background: var(--bg-inset);
+  color: var(--text-3);
+}
+
+/*
+ * Editable cells are borderless until touched.
+ *
+ * A grid where every cell draws a box is unreadable, the boxes outweigh the values. The
+ * affordance arrives on hover and focus, which is the convention every spreadsheet uses.
+ */
+.dict__input,
+.dict__select {
+  width: 100%;
+  min-height: 22px;
+  height: 22px;
+  padding: 0 var(--s2);
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  background: none;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+}
+
+.dict__input:hover:not(:disabled),
+.dict__select:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--bg-surface);
+}
+
+.dict__input:focus,
+.dict__select:focus {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  outline: none;
+}
+
+.dict__input::placeholder {
+  color: var(--text-4);
+}
+
+.dict__input:disabled,
+.dict__select:disabled {
+  color: var(--text-2);
+  background: none;
+  border-color: transparent;
+}
+
+/* An inherited value is real but not set here, so it is shown muted and in italic. */
+.dict__select.is-inherited,
+.dict__catsbtn.is-inherited {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.dict__cats {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.dict__catsbtn {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  min-height: 22px;
+  padding: 0 var(--s2);
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  background: none;
+  color: var(--text-1);
+  cursor: pointer;
+  font-size: var(--fs-2xs);
+}
+
+.dict__catsbtn:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--bg-surface);
+}
+
+.dict__cat {
+  padding: 1px var(--s3);
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  font-weight: var(--fw-medium);
+}
+
+.dict__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dropdown);
+}
+
+.dict__catsmenu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: calc(var(--z-dropdown) + 1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  min-width: 150px;
+  padding: var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-3);
+}
+
+.dict__catsopt {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s1) var(--s2);
+  border-radius: var(--r-xs);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+}
+
+.dict__catsopt:hover {
+  background: var(--bg-hover);
+}
+
+.dict__catsclear {
+  margin-top: var(--s2);
+  padding: var(--s2);
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: var(--fs-xs);
+  text-align: left;
+}
+
+/* ---------------------------------------------------------------- lineage & impact */
+
+.props__note {
+  padding: 0 var(--s5) var(--s3);
+  margin: 0;
+  line-height: var(--lh-normal);
+}
+
+.lin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: 0 var(--s5) var(--s4);
+}
+
+/*
+ * One hop per block, source above target.
+ *
+ * Not a single horizontal chain. At 300px there is no room for `raw_customer.email_address →
+ * stg_customer.email_address` on one line, and the expression that produced it is the thing
+ * worth reading, so each hop gets its own stacked block with the SQL underneath.
+ */
+.lin__hop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+  font-size: var(--fs-sm);
+}
+
+.lin__node {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--fs-sm);
+}
+
+.lin__node:hover {
+  text-decoration: underline;
+}
+
+.lin__node--target {
+  color: var(--text-1);
+  cursor: default;
+}
+
+.lin__node--target:hover {
+  text-decoration: none;
+}
+
+.lin__col {
+  color: var(--text-3);
+}
+
+.lin__arrow {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding-left: var(--s3);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.lin__via {
+  padding: 0 3px;
+  border-radius: var(--r-xs);
+  background: var(--bg-surface);
+}
+
+.lin__expr {
+  display: block;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-xs);
+  background: var(--bg-surface);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  /* Wrapped, not truncated: half an expression answers nothing. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lin__rule {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+}
+
+.lin__caveat {
+  padding: var(--s3);
+  border-left: 2px solid var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+}
+
+.lin__caveat p {
+  margin: 0;
+}
+
+.lin__caveat p + p {
+  margin-top: var(--s2);
+}
+
+.imp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: 0 var(--s5) var(--s4);
+}
+
+.imp__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+
+.imp__count {
+  padding: 1px var(--s3);
+  border-radius: 999px;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+}
+
+.imp__count--breaks { background: var(--err-soft); color: var(--err-text); }
+.imp__count--rewrites { background: var(--warn-soft); color: var(--warn-text); }
+.imp__count--informational { background: var(--bg-inset); color: var(--text-3); }
+
+.imp__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3);
+  border-left: 2px solid var(--border);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--bg-inset);
+}
+
+.imp__row--breaks { border-left-color: var(--err); }
+.imp__row--rewrites { border-left-color: var(--warn); }
+
+.imp__name {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.imp__name:hover {
+  text-decoration: underline;
+}
+
+.imp__reason {
+  flex: 1 0 100%;
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The fix column.
+ *
+ * Right-aligned and last, so a row reads "what is wrong, where, why" before it offers to act.
+ * The button carries the new name rather than saying "Fix", because a rename you cannot
+ * preview is a rename you should not click.
+ */
+.dock__fix {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/*
+ * Undo and redo, on the canvas toolbar.
+ *
+ * One icon used twice, mirrored for redo, the two operations are each other's reflection, and
+ * two unrelated glyphs would make the pair harder to read rather than easier.
+ */
+.canvasbar__undo {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding-left: var(--s3);
+  margin-left: var(--s2);
+  border-left: 1px solid var(--border);
+}
+
+.canvasbar__undo .is-flipped svg {
+  transform: scaleX(-1);
+}
+
+/* ---------------------------------------------------------------- overview */
+
+.ov {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s8);
+}
+
+/*
+ * Two columns: activity is the wide one.
+ *
+ * Activity gets the space because its rows are sentences and domains are labels. Below 1000px
+ * they stack, activity first, which keeps the reading order the same as the priority order.
+ */
+.ov__split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  gap: var(--s8);
+  align-items: start;
+}
+
+@media (width <= 1000px) {
+  .ov__split { grid-template-columns: minmax(0, 1fr); }
+}
+
+.ov__h {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s4);
+  margin: 0 0 var(--s5);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ov__more {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0;
+  text-transform: none;
+  text-decoration: none;
+}
+
+.ov__more:hover { text-decoration: underline; }
+
+.ov__quiet {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+/* ------------------------------------------------ attention */
+
+.ov__attention {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.ov__alert {
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+  padding: var(--s5) var(--s6);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--r);
+  background: var(--bg-surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Colour carries the severity; the icon and the border agree so neither is load-bearing alone. */
+.ov__alert--err {
+  border-left-color: var(--err);
+  background: var(--err-soft);
+  color: var(--err-text);
+}
+
+.ov__alert--warn {
+  border-left-color: var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn-text);
+}
+
+.ov__alert:is(a):hover { border-color: var(--border-strong); }
+
+.ov__alerttext {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+.ov__alerttext span { color: var(--text-2); }
+.ov__alert--err .ov__alerttext span { color: var(--err-text); opacity: 0.85; }
+.ov__alert--warn .ov__alerttext span { color: var(--warn-text); opacity: 0.85; }
+
+.ov__alertactions { display: flex; gap: var(--s3); flex: none; }
+.ov__alertgo { flex: none; opacity: 0.6; }
+
+/* ------------------------------------------------ activity feed */
+
+.ov__feed {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ov__event {
+  display: flex;
+  gap: var(--s5);
+  padding: var(--s4) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ov__event:last-child { border-bottom: 0; }
+
+/*
+ * An avatar, matching the models list.
+ *
+ * This was a dot carrying "came through a pull request", on the argument that the route mattered
+ * more than the person. That argument was right about the signal and wrong about where to put it:
+ * the models list already puts an initial-in-a-circle next to every "last change", so a feed of
+ * the same commits rendered with anonymous dots made the two pages look like different products.
+ *
+ * The PR signal did not have to be sacrificed for it, it moved to the `#42` link and the
+ * `direct` badge on the same row, where it is spelled out rather than encoded in a colour.
+ */
+.ov__eventavatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+}
+
+.ov__eventbody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ov__eventtop {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  min-width: 0;
+}
+
+.ov__subject {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.ov__pr {
+  flex: none;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-decoration: none;
+}
+
+.ov__pr:hover { text-decoration: underline; }
+
+.ov__eventmeta {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+/* ------------------------------------------------ the pulse band */
+
+/*
+ * Three panels: what the model is, what it is made of, and what has happened to it.
+ *
+ * This band is the answer to the page having had no graphics at all. It sits below Attention, * "something is broken" outranks "here is the shape of things", and above the domain list,
+ * because it is the fastest answer to "what am I looking at" for a first-time visitor.
+ *
+ * Equal columns rather than a hero-plus-two. Each panel answers a different question and none of
+ * them is the headline; sizing one larger would be a claim about importance that is not true.
+ */
+.pulse {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s5);
+}
+
+@media (width <= 1000px) {
+  .pulse { grid-template-columns: minmax(0, 1fr); }
+}
+
+.pulse__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s6);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-1);
+  /*
+   * A staggered entrance, once, on load.
+   *
+   * The band is the first thing on the page and its three panels arrive together as a block;
+   * a 60ms stagger lets the eye land on them in reading order instead of all at once. Short
+   * enough that someone who opens this page fifty times a day never waits for it.
+   */
+  animation: pulse-in var(--dur-med) var(--ease-out) backwards;
+}
+
+.pulse__panel:nth-child(2) { animation-delay: 60ms; }
+.pulse__panel:nth-child(3) { animation-delay: 120ms; }
+
+@keyframes pulse-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse__panel { animation: none; }
+}
+
+.pulse__h {
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+.pulse__big {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s4);
+  margin: 0;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--track-tighter);
+  line-height: 1;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.pulse__bigunit {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-normal);
+  letter-spacing: 0;
+  color: var(--text-4);
+}
+
+.pulse__sub {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+
+.pulse__quiet {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-4);
+  line-height: var(--lh-normal);
+}
+
+.pulse__legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pulse__legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  font-size: var(--fs-sm);
+}
+
+.pulse__legendname {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-2);
+}
+
+.pulse__legendvalue {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.pulse__health {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin: auto 0 0;
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.pulse__healthok { color: var(--ok); }
+.pulse__healtherr { color: var(--err-text); font-weight: var(--fw-medium); }
+.pulse__healthwarn { color: var(--warn-text); }
+
+/* ------------------------------------------------ the tier bar */
+
+/*
+ * The identity graphic: conceptual, logical, physical, sharing one baseline.
+ *
+ * One stacked bar rather than three, because the interesting quantity is the *ratio*. A physical
+ * segment far shorter than the logical one means the design has run ahead of what was built, and
+ * that only reads when the segments are measured against each other.
+ */
+.tbar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+
+.tbar__seg {
+  min-width: 3px;
+  border-radius: var(--r-xs);
+  transition: flex-grow var(--dur-med) var(--ease);
+}
+
+.tbar__seg--conceptual { background: var(--tier-conceptual); }
+.tbar__seg--logical { background: var(--tier-logical); }
+.tbar__seg--physical { background: var(--tier-physical); }
+
+/*
+ * A tier with nothing in it is still drawn, as a track.
+ *
+ * Dropping the segment would make an absent conceptual layer indistinguishable from a rendering
+ * bug. Drawn faintly, it reads as what it is: a tier this workspace has not modelled.
+ */
+.tbar__seg.is-empty {
+  background: var(--bg-inset);
+  flex-grow: 0;
+  flex-basis: 10px;
+}
+
+/* ------------------------------------------------ composition */
+
+.comp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.comp__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  font-size: var(--fs-sm);
+}
+
+.comp__name {
+  flex: none;
+  width: 96px;
+  color: var(--text-2);
+}
+
+.comp__track {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+
+.comp__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  opacity: 0.75;
+}
+
+.comp__value {
+  flex: none;
+  min-width: 22px;
+  text-align: end;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------ activity chart */
+
+/*
+ * Commits per week over a quarter, oldest left.
+ *
+ * Columns rather than the per-model squares the models list uses: those cap out at a handful and
+ * count individual changes, whereas this is workspace-wide over twelve weeks and needs a shape.
+ * The two graphics describe the same data at different scales, which is why they look different.
+ */
+.achart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 56px;
+  /*
+   * A baseline the columns stand on.
+   *
+   * Without it the quiet weeks float and the chart reads as a row of unrelated marks rather than
+   * one measurement over time.
+   */
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.achart__col {
+  flex: 1;
+  min-width: 3px;
+  border-radius: var(--r-xs) var(--r-xs) 0 0;
+  background: var(--accent);
+  opacity: 0.85;
+  transition: height var(--dur-med) var(--ease);
+}
+
+/*
+ * A week with no changes is drawn as a full-height empty track, not a 2px tick.
+ *
+ * Observed on the real workspace: ten months of history compressed into three active weeks left
+ * nine columns rendering as ~2px stubs, and a row of stubs beside three tall bars reads as a
+ * dotted rule someone forgot to remove, not as "nothing happened those weeks". Given as a faint
+ * full-height track, the same data reads as a chart with gaps in it, which is what it is.
+ */
+.achart__col.is-zero {
+  height: 100% !important;
+  background: var(--bg-inset);
+  opacity: 1;
+  border-radius: var(--r-xs);
+}
+
+.achart--loading {
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+}
+
+/* ------------------------------------------------ contributors */
+
+.people {
+  display: flex;
+  align-items: center;
+}
+
+.people__one {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: -6px;
+  border: 2px solid var(--bg-surface);
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+}
+
+.people__one:last-of-type { margin-right: 0; }
+
+.people__more {
+  margin-left: var(--s5);
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+/* ------------------------------------------------ domains */
+
+.ov__main { min-width: 0; }
+.ov__side { min-width: 0; }
+
+/*
+ * Domain cards, two across.
+ *
+ * Was a single stacked column of label-and-count rows in the narrow side column. Domains are the
+ * page's navigation, they are how someone gets to a model, so they take the wide column, and a
+ * grid stops four domains from becoming a scroll.
+ */
+.ov__domains {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--s5);
+}
+
+.dcard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-1);
+  transition: box-shadow var(--dur-fast) var(--ease);
+}
+
+.dcard:hover { box-shadow: var(--shadow-2); }
+
+.dcard__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.dcard__name {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  color: var(--text-1);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  text-decoration: none;
+}
+
+.dcard__name:hover { color: var(--accent); }
+
+.dcard__count {
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.dcard__tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Every tier is a link to its studio, the old cards listed them and went nowhere. */
+.dcard__tier {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s3);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+}
+
+.dcard__tier:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+/*
+ * A tier the domain does not have.
+ *
+ * Rendered rather than omitted, and not a link, so the row is visibly a gap instead of leaving
+ * a two-tier domain looking complete.
+ */
+.dcard__tier.is-missing {
+  color: var(--text-disabled);
+}
+
+.dcard__tier.is-missing .dot { opacity: 0.35; }
+.dcard__tier.is-missing:hover { background: none; color: var(--text-disabled); }
+
+.dcard__tiername { min-width: 0; flex: 1; }
+
+.dcard__tiercount {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.dcard__missing {
+  margin: 0;
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+}
+
+/* ------------------------------------------------ setup */
+
+.ov__setupline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  padding-top: var(--s5);
+  margin: 0;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.ov__setupnote { color: var(--warn-text); }
+
+.ov__setup {
+  padding-top: var(--s6);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ov__todo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.ov__todo li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s4);
+  line-height: var(--lh-normal);
+}
+
+/* ---------------------------------------------------------------- integrations */
+
+/*
+ * The integrations page.
+ *
+ * Rewritten alongside the page itself. The previous version styled a settings form, because that
+ * is what the page was: four full-width rows in a single column, each mostly empty, on a page
+ * that filled a third of the viewport and left the rest white.
+ *
+ * The layout is now a two-column grid of provider cards with a delivery log beneath. That is not
+ * a cosmetic preference, it follows from the cards finally having something to show. A card
+ * carrying a delivery strip, a last-attempt sentence and a failure line is tall enough that four
+ * of them stacked is a scroll, and narrow enough that two fit side by side at any realistic
+ * window width.
+ */
+
+.intg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s7);
+  max-width: var(--page-max);
+}
+
+.intg__grid {
+  display: grid;
+  /*
+   * Two columns, fixed, not `auto-fit`.
+   *
+   * `auto-fit` with a 330px floor gave three columns at a normal window width, which left the
+   * fourth provider alone on its own row beside two card-widths of nothing. There are four
+   * providers and a 2x2 is the shape that has no orphan; pinning it also means the cards stay
+   * wide enough for the last-attempt sentence to sit on one line.
+   */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s5);
+}
+
+/* One column once two would be narrower than the sentence they have to carry. */
+@media (max-width: 900px) {
+  .intg__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------ provider card */
+
+.pcard {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s6);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  /*
+   * The state colour lives in one variable, set per health below.
+   *
+   * Every accent on the card, the icon tile, the spine, reads from it, so a card's state is
+   * one declaration rather than five rules that can drift apart.
+   */
+  --pc: var(--border-strong);
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.pcard:hover {
+  box-shadow: var(--shadow-2);
+}
+
+/*
+ * A spine rather than a tinted background.
+ *
+ * Tinting the whole card would put four competing washes on one screen and make the delivery
+ * strip, the element that actually carries information, harder to read against it.
+ */
+.pcard::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: 0;
+  width: 3px;
+  background: var(--pc);
+}
+
+.pcard--off {
+  --pc: transparent;
+}
+.pcard--idle {
+  --pc: var(--accent);
+}
+.pcard--working {
+  --pc: var(--ok);
+}
+.pcard--incomplete {
+  --pc: var(--warn);
+}
+.pcard--failing {
+  --pc: var(--err);
+  border-color: var(--err-line);
+}
+
+/* An off provider recedes rather than disappearing: it is still a thing you can turn on. */
+.pcard--off .pcard__icon,
+.pcard--off .pcard__summary {
+  opacity: 0.62;
+}
+
+.pcard__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+}
+
+.pcard__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r);
+  background: var(--bg-inset);
+  color: var(--text-2);
+}
+
+.pcard--working .pcard__icon {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.pcard--failing .pcard__icon {
+  background: var(--err-soft);
+  color: var(--err);
+}
+.pcard--incomplete .pcard__icon {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.pcard--idle .pcard__icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.pcard__title {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  flex: 1;
+  min-width: 0;
+}
+
+.pcard__name {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--track-tight);
+  color: var(--text-1);
+}
+
+.pcard__summary {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+}
+
+/* ------------------------------------------------------------ delivery strip */
+
+/*
+ * Twelve slots, oldest left.
+ *
+ * The empty slots are drawn, not omitted, so the strip is the same width on every card whatever
+ * its history, otherwise two cards side by side cannot be compared at a glance, which is the
+ * only reason to draw it rather than write the number.
+ */
+.strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 22px;
+  padding: var(--s2) 0;
+}
+
+.strip__bar {
+  flex: 1;
+  border-radius: var(--r-xs);
+  min-width: 4px;
+}
+
+.strip__bar--empty {
+  height: 6px;
+  background: var(--bg-inset);
+}
+
+.strip__bar--ok {
+  height: 100%;
+  background: var(--ok);
+  opacity: 0.85;
+}
+
+.strip__bar--err {
+  height: 100%;
+  background: var(--err);
+}
+
+.pcard__last {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s4);
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: var(--lh-normal);
+}
+
+.pcard__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-full);
+  background: var(--text-4);
+  transform: translateY(-1px);
+}
+
+.pcard__dot--ok {
+  background: var(--ok);
+}
+.pcard__dot--err {
+  background: var(--err);
+}
+.pcard__dot--idle {
+  background: var(--accent);
+}
+
+.pcard__lasttext {
+  min-width: 0;
+}
+
+.pcard__lasttext--muted {
+  color: var(--text-4);
+}
+
+.pcard__lastsummary {
+  color: var(--text-3);
+}
+
+.pcard__failure {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  margin: 0;
+  padding: var(--s4);
+  border-radius: var(--r-sm);
+  background: var(--err-soft);
+  color: var(--err-text);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+.pcard__failure svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.pcard__events {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Which events a provider answers to, as chips, three of these fit without wrapping. */
+.pcard__event {
+  padding: 1px var(--s3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-full);
+  background: var(--bg-inset);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+
+.pcard__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--border-subtle);
+  /*
+   * A short entrance, and only on open.
+   *
+   * The panel is tall, so appearing instantly makes the rest of the grid jump. 200ms is enough
+   * to read as movement without becoming something you wait for on the tenth open.
+   */
+  animation: pcard-open var(--dur-med) var(--ease-out);
+}
+
+@keyframes pcard-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* Someone who has asked for less motion has asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .pcard__body {
+    animation: none;
+  }
+}
+
+.pcard__detail {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+}
+
+.pcard__caps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pcard__caps li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+.pcard__caps svg {
+  color: var(--ok);
+  flex: none;
+  margin-top: 3px;
+}
+
+.pcard__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+.pcard__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.pcard__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s4);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+}
+
+.pcard__req {
+  color: var(--text-4);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-normal);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pcard__hint {
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+}
+
+.pcard__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ------------------------------------------------------------ delivery log */
+
+.dlog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+.dlog__h {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+.dlog__count {
+  padding: 0 var(--s3);
+  border-radius: var(--r-full);
+  background: var(--bg-inset);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-normal);
+  letter-spacing: 0;
+}
+
+.dlog__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+.dlog__row + .dlog__row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.dlog__main {
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+  width: 100%;
+  padding: var(--s4) var(--s5);
+  border: 0;
+  background: none;
+  text-align: start;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.dlog__main:hover {
+  background: var(--bg-hover);
+}
+
+.dlog__status {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-full);
+}
+
+.dlog__status--ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.dlog__status--err {
+  background: var(--err-soft);
+  color: var(--err);
+}
+
+.dlog__who {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: none;
+  width: 96px;
+}
+
+.dlog__provider {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-1);
+}
+
+.dlog__event {
+  font-size: var(--fs-2xs);
+  color: var(--text-4);
+}
+
+.dlog__what {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.dlog__message {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.dlog__summary {
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+
+.dlog__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+
+.dlog__sha {
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+/* Fixed width so the timestamps form a column instead of ragging. */
+.dlog__when {
+  min-width: 96px;
+  text-align: end;
+}
+
+.dlog__dur {
+  min-width: 44px;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.dlog__chevron {
+  flex: none;
+  color: var(--text-4);
+}
+
+.dlog__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s5) var(--s5) var(--s6) calc(var(--s5) + 20px + var(--s5));
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-canvas);
+}
+
+.dlog__detailtext {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: var(--lh-normal);
+}
+
+.dlog__detailtext--muted {
+  color: var(--text-4);
+}
+
+.dlog__previewlabel {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-4);
+}
+
+.dlog__preview {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: var(--s4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dlog__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s11) var(--s7);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-canvas);
+  text-align: center;
+}
+
+.dlog__art {
+  width: 220px;
+  max-width: 100%;
+  height: auto;
+  color: var(--text-4);
+  /* Drawn at a low weight: it is scene-setting, not a thing to look at. */
+  opacity: 0.65;
+}
+
+.dlog__emptytitle {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+}
+
+.dlog__emptybody {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--text-4);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+}
+
+/* ---------------------------------------------------------------- skills */
+
+/*
+ * The skills page.
+ *
+ * One column, not a grid. Skills carry findings, sentences naming an object and a file, and a
+ * finding wrapped to three lines in a narrow card is harder to read than the same finding on one
+ * line in a wide one. The integrations grid works because those cards carry a strip and a status;
+ * these carry prose.
+ *
+ * The colour system encodes *consequence*, not run status. A failing advisory skill and a failing
+ * blocking skill have identical status and opposite meanings, one annotates a proposal, the
+ * other refuses it, and that distinction is the only thing on this page with teeth.
+ */
+
+.skills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s6);
+  max-width: 900px;
+}
+
+.skills__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+.skill {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s6);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-1);
+  --sk: var(--border-strong);
+}
+
+/* The spine carries the state, so a scan down the left edge reads the whole page. */
+.skill::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: 0;
+  width: 3px;
+  background: var(--sk);
+}
+
+.skill--passing { --sk: var(--ok); }
+.skill--advising { --sk: var(--warn); }
+.skill--blocking { --sk: var(--err); border-color: var(--err-line); }
+.skill--broken { --sk: var(--err); }
+.skill--skipped { --sk: var(--border-strong); }
+.skill--off { --sk: transparent; }
+
+.skill--off .skill__icon,
+.skill--off .skill__desc { opacity: 0.6; }
+
+.skill__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+}
+
+.skill__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r);
+  background: var(--bg-inset);
+  color: var(--text-2);
+}
+
+.skill--passing .skill__icon { background: var(--ok-soft); color: var(--ok); }
+.skill--advising .skill__icon { background: var(--warn-soft); color: var(--warn); }
+.skill--blocking .skill__icon,
+.skill--broken .skill__icon { background: var(--err-soft); color: var(--err); }
+
+.skill__title {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  flex: 1;
+  min-width: 0;
+}
+
+.skill__name {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--track-tight);
+  color: var(--text-1);
+}
+
+/* `check` or `agent`, quiet, because it is a property of the rule, not its state. */
+.skill__kind {
+  padding: 1px var(--s3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-full);
+  background: var(--bg-inset);
+  color: var(--text-4);
+  font-size: var(--fs-2xs);
+}
+
+.skill__desc {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+}
+
+.skill__meta {
+  margin: 0;
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+.skill__problem,
+.skill__note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  margin: 0;
+  padding: var(--s4);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+.skill__problem {
+  background: var(--err-soft);
+  color: var(--err-text);
+}
+
+.skill__note {
+  background: var(--bg-inset);
+  color: var(--text-3);
+}
+
+.skill__problem svg,
+.skill__note svg { flex: none; margin-top: 2px; }
+
+.skill__findings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin: 0;
+  padding: var(--s4) 0 0;
+  list-style: none;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.skill__findings li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s4);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+.skill__findingdot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin-top: 7px;
+  border-radius: var(--r-full);
+  background: var(--sk);
+}
+
+.skill__findingbody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.skill__findingmsg { color: var(--text-2); }
+
+.skill__findingfile {
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+.skill__more { padding-left: calc(5px + var(--s4)); }
+
+.skill__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.skill__when {
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+/* ------------------------------------------------ empty state */
+
+.skills__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s5);
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--s10) var(--s7);
+  text-align: center;
+}
+
+.skills__art {
+  width: 64px;
+  height: auto;
+  color: var(--text-4);
+  opacity: 0.7;
+}
+
+.skills__emptytitle {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--track-tight);
+  color: var(--text-1);
+}
+
+.skills__emptybody,
+.skills__emptyfoot {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+}
+
+.skills__emptyfoot { color: var(--text-4); }
+
+/*
+ * A worked example, not a description of the format.
+ *
+ * Someone arriving here has to write a markdown file with YAML frontmatter. Showing the shape is
+ * a much shorter path to that than three paragraphs about it, and it is copy-pasteable.
+ */
+.skills__sample {
+  width: 100%;
+  margin: 0;
+  padding: var(--s5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  text-align: start;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+/*
+ * A button that reads as a link.
+ *
+ * Used for in-place disclosure ("Show all 12") where a real Button would out-weigh the list it
+ * expands. A `<button>` rather than an `<a href="#">` because it performs an action rather than
+ * navigating, the element has to match what it does, or the keyboard and screen reader stories
+ * both go wrong.
+ */
+.linkish {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.linkish:hover { text-decoration: underline; }
+
+.linkish:focus-visible {
+  outline: none;
+  border-radius: var(--r-xs);
+  box-shadow: var(--ring);
+}
+
+/*
+ * Why this exists: the ticket, then the commit facts.
+ *
+ * The ticket sits in a raised block above a plain definition list, because it answers a
+ * different question from the rest. "Who changed this and when" is provenance; "what were they
+ * asked to do" is intent, and intent is the thing nobody can otherwise recover. Giving it the
+ * visual weight puts the scarce answer first.
+ */
+.prov {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: 0 var(--s5) var(--s4);
+  font-size: var(--fs-sm);
+}
+
+.prov__ticket {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: var(--s3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+  color: var(--text-3);
+}
+
+.prov__ticketbody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  min-width: 0;
+}
+
+.prov__key {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+.prov__summary {
+  color: var(--text-1);
+  line-height: var(--lh-normal);
+}
+
+.prov__status {
+  align-self: flex-start;
+  padding: 0 var(--s2);
+  border-radius: var(--r-xs);
+  background: var(--bg-active);
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+}
+
+.prov__muted {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+/*
+ * A two-column grid rather than stacked pairs: the labels are short and repetitive, and aligning
+ * the values makes the block scannable at the 300px the panel actually gets.
+ */
+.prov__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s2) var(--s4);
+  margin: 0;
+}
+
+.prov__facts dt {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.prov__facts dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-1);
+  line-height: var(--lh-normal);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The governance report.
+ *
+ * Three stacked sections rather than tabs, because the reader's job is to take all of it in at
+ * once and then export it. Tabs would hide two thirds of a document whose whole purpose is to be
+ * a single artefact.
+ */
+.gov {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s8);
+  padding: var(--s6) var(--s7) var(--s10);
+}
+
+.gov__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.gov__h {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--text-1);
+}
+
+.gov__lede {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+/* auto-fit rather than a fixed count, so four tiles reflow to two at tablet width and one on a
+   phone without a media query per breakpoint. */
+.gov__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--s4);
+}
+
+.gov__stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: var(--bg-inset);
+}
+
+.gov__statlabel {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.gov__statvalue {
+  color: var(--text-1);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+}
+
+.gov__statdetail {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.gov__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.gov__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.gov__table td {
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-1);
+  vertical-align: top;
+}
+
+.gov__table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+/*
+ * The register is six columns wide and does not fit a phone.
+ *
+ * Scrolled horizontally rather than reflowed into cards. A governance register is read by
+ * scanning down one column, which a card list destroys, and it is consulted far more often on a
+ * desktop than a phone. The honest small-screen answer is the download, which the page offers.
+ *
+ * `min-width: 0` on the section is what actually makes this work: a grid or flex child defaults
+ * to `min-width: auto`, so it refuses to shrink below its content and the overflow lands on the
+ * page instead of the container that asked for it.
+ */
+.gov__section {
+  min-width: 0;
+}
+
+.gov__scroll {
+  overflow-x: auto;
+  /* A tapped-and-dragged table should not also drag the page underneath it. */
+  overscroll-behavior-x: contain;
+}

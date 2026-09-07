@@ -1,0 +1,77 @@
+# Self-hosted strata.
+#
+# The container holds no state. Your model repo is a bind mount and stays a normal
+# git checkout on the host, so `git log` there shows exactly what the tool did.
+
+services:
+  strata:
+    build: .
+    image: strata:local
+    ports:
+      - "4000:4000"
+
+    environment:
+      PORT: 4000
+      STRATA_WORKSPACE: /workspace
+
+      # Accounts, password hashes and the session signing secret. Kept on a named
+      # volume, deliberately outside the model repo, committing password hashes to
+      # the repo this tool versions would be an unforced error.
+      STRATA_DATA_DIR: /data
+
+      # Set to true when serving over HTTPS, so the session cookie gets the Secure
+      # attribute. Leave false for plain HTTP behind a VPN or on localhost.
+      STRATA_COOKIE_SECURE: ${STRATA_COOKIE_SECURE:-false}
+
+      # Set STRATA_AUTH=off for a single-user local instance. Off means anyone who can
+      # reach the port can edit, so only do this behind something else.
+      STRATA_AUTH: ${STRATA_AUTH:-on}
+
+      # Needed to open pull requests automatically. Without it the tool still
+      # branches, commits and pushes, then hands back a compare link.
+      # Scope: `repo` for a classic PAT, or contents+pull-requests write for a
+      # fine-grained one.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+
+      # Who commits show up as. git reads these natively.
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-strata}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-strata@localhost}
+      GIT_COMMITTER_NAME: ${GIT_AUTHOR_NAME:-strata}
+      GIT_COMMITTER_EMAIL: ${GIT_AUTHOR_EMAIL:-strata@localhost}
+
+    volumes:
+      # Your model repo. Must be a git checkout for the pull request flow to work.
+      #
+      # Defaults to ./workspace, which does not exist on a fresh clone, so the first run opens
+      # the setup screen rather than a workspace full of somebody else's example models. Point
+      # it at your own checkout:
+      #
+      #   STRATA_WORKSPACE_HOST=/srv/data-models docker compose up -d
+      #
+      # Or at the shipped example, to look around:
+      #
+      #   STRATA_WORKSPACE_HOST=./examples/quickstart docker compose up -d
+      - ${STRATA_WORKSPACE_HOST:-./workspace}:/workspace
+
+      # Accounts and session secret. Losing this volume means re-running first-run
+      # setup; it does not affect the models.
+      - strata-data:/data
+
+      # Read-only SSH keys, if your git remotes use SSH rather than HTTPS.
+      # Comment this out when pushing over HTTPS with a token.
+      - ${SSH_DIR:-~/.ssh}:/home/strata/.ssh:ro
+
+    restart: unless-stopped
+
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  strata-data:

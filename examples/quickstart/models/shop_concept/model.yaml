@@ -1,0 +1,6 @@
+id: mdl_shop_concept
+kind: model
+name: shop_concept
+tier: conceptual
+namespace: shop
+description: What the shop talks about, in the words the shop uses.

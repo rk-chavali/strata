@@ -1,0 +1,19 @@
+id: rel_ent_customer_order
+kind: relationship
+name: customer_places_order
+model: shop_logical
+tier: logical
+parent:
+  attributes:
+    - Customer Identifier
+  cardinality: exactly-one
+  ref: Customer
+  verbPhrase: places
+child:
+  attributes:
+    - Customer Identifier
+  cardinality: zero-or-more
+  ref: Order
+  verbPhrase: is placed by
+assert: true
+identifying: false

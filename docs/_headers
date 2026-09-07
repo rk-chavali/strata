@@ -1,0 +1,34 @@
+# Response headers for the docs site on Cloudflare Pages.
+#
+# Cloudflare reads this file at the root of the published directory. It is not served itself.
+#
+# The docs are static HTML with no user input, so the risk here is small. They are still worth
+# setting: this site is the front door to the demo, `try.html` makes a cross-origin request to it,
+# and a front door with no headers is the kind of detail a security reviewer notices before they
+# read a word of the actual documentation.
+
+/*
+  # Nothing here needs to be framed by anyone.
+  X-Frame-Options: DENY
+
+  # Do not let a browser guess a content type it was not given.
+  X-Content-Type-Options: nosniff
+
+  # Do not leak which docs page somebody came from when they click through to the demo.
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # No feature on these pages needs any of this.
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+
+  # A policy tight enough to be worth having, loose enough for what these pages actually do.
+  #
+  # `style-src` admits inline styles because `try.html` keeps its whole stylesheet inline so the
+  # page paints on the first frame, which is the entire point of that page.
+  #
+  # `script-src` admits inline scripts for the same reason: the waking logic is inline so it runs
+  # without waiting for a second request. That is a real concession, and it is acceptable here
+  # only because nothing on this site renders user input.
+  #
+  # `connect-src` has to include the demo, because try.html polls its health endpoint. Update the
+  # Render URL here if it ever changes, or the waking page silently falls back to a blind probe.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://strata-demo.onrender.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'

@@ -1,0 +1,29 @@
+apiVersion: v2
+name: strata
+description: Git-native data modelling for BigQuery, self-hosted in your own cluster
+type: application
+
+# The chart version moves when the chart changes; the app version tracks the image.
+# Keeping them separate means a values-only fix does not pretend to be a new application
+# release, which is what an operator reads these two fields to tell apart.
+version: 1.0.0
+appVersion: "1.0.0"
+
+keywords:
+  - data-modelling
+  - erd
+  - bigquery
+  - dataform
+  - gitops
+
+home: https://github.com/rk-chavali/strata
+sources:
+  - https://github.com/rk-chavali/strata
+
+maintainers:
+  - name: strata
+
+annotations:
+  # Surfaced by Artifact Hub and most internal chart catalogues.
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/operator: "false"

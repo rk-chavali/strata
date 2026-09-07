@@ -1,0 +1,25 @@
+{
+  "name": "@strata/ddl",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "BigQuery DDL generation from a physical model",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@strata/metamodel": "workspace:*"
+  }
+}

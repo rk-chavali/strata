@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    The strata mark, as a browser tab icon.
+
+    The filled tile rather than the bare mark: at 16px a browser tab gives an icon almost no
+    room, and three floating bars lose against a busy favicon row. A solid block of colour is
+    what makes it findable when a person has thirty tabs open, which is the only job this file
+    has. The bare mark is used everywhere it has space around it.
+
+    One flat colour, no gradient, so it stays legible at 16px and in a monochrome context.
+  -->
+  <rect width="32" height="32" rx="7" fill="#2563eb"/>
+  <rect x="7" y="9" width="13" height="4" rx="2" fill="#fff"/>
+  <rect x="9.5" y="14" width="13" height="4" rx="2" fill="#fff" opacity=".7"/>
+  <rect x="12" y="19" width="13" height="4" rx="2" fill="#fff" opacity=".45"/>
+</svg>

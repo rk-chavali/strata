@@ -1,0 +1,42 @@
+name: Prune container versions
+
+# Deletes untagged container versions.
+#
+# Untagged versions are not junk anyone created on purpose, they are how the registry works.
+# A multi-arch build publishes a manifest list plus one manifest per architecture, and only
+# the list carries the tag, so every release leaves per-platform children untagged. Moving
+# `latest` or `edge` also strips the tag from whatever it pointed at before.
+#
+# Left alone they accumulate forever: this package reached 53 untagged versions against 12
+# tagged ones. They cost storage, they make the package page unreadable, and none of them is
+# reachable by a name anyone would type.
+#
+# Tagged versions are never touched here. Deleting a release is a decision, not a chore.
+on:
+  schedule:
+    # Mondays, early. Frequent enough to keep the list short, rare enough to be ignorable.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  prune:
+    name: Delete untagged versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Prune
+        uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55 # v5
+        with:
+          package-name: strata
+          package-type: container
+          # Only ever the untagged ones.
+          delete-only-untagged-versions: true
+          # A window, not zero. An in-flight `docker pull` of a manifest whose children were
+          # just deleted fails, and the newest untagged versions are the ones most likely to
+          # belong to the release someone is pulling right now.
+          min-versions-to-keep: 10

@@ -1,0 +1,16 @@
+id: dgm_shop_sales
+kind: diagram
+name: Sales
+model: shop_logical
+nodes:
+  - ref: Customer
+    x: 80
+    y: 80
+    width: 280
+  - ref: Order
+    x: 520
+    y: 80
+    width: 280
+notation: crowsFoot
+displayLevel: attributesWithTypes
+gridSize: 20

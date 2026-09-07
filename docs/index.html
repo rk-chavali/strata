@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Strata: git-native data modelling for BigQuery</title>
+<meta name="description" content="Strata is a data modelling tool for BigQuery that keeps the model as plain files in your own git repository, so a schema change becomes a reviewable pull request.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="Strata: git-native data modelling for BigQuery">
+<meta property="og:description" content="Strata is a data modelling tool for BigQuery that keeps the model as plain files in your own git repository, so a schema change becomes a reviewable pull request.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+<style>
+/*
+  Landing page.
+
+  Shares the tokens and typography with the docs so the two feel like one product, but the layout
+  is its own thing: no sidebar, wider measure, and a hero that has to earn attention rather than
+  organise it.
+*/
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+/* ---------------------------------------------------------------- hero */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 56px;
+  align-items: center;
+  padding: 88px 0 76px;
+}
+
+.hero h1 {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: clamp(38px, 5.5vw, 60px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+
+.hero .sub {
+  font-size: 19px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  margin: 0 0 32px;
+  max-width: 46ch;
+}
+
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+
+.btn {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 16px;
+  padding: 12px 24px;
+  border-radius: 7px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--paper);
+  text-decoration: none;
+  display: inline-block;
+}
+:root[data-theme="dark"] .btn:not(.ghost),
+:root:not([data-theme="light"]) .btn:not(.ghost) { color: #0c1016; }
+
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:hover { opacity: 0.9; }
+
+.hero small {
+  display: block;
+  font-size: 13.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
+/* The illustration: the same table, as a diagram and as the file it actually is. */
+.figure {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+.figure svg { width: 100%; height: auto; display: block; }
+
+.f-frame { fill: var(--surface); stroke: var(--accent); stroke-width: 1.4; }
+.f-head { fill: var(--accent-wash); }
+.f-title { font-family: var(--mono); font-size: 8.5px; fill: var(--accent); font-weight: 500; }
+.f-row { font-family: var(--mono); font-size: 7px; fill: var(--ink-3); }
+.f-rule { stroke: var(--rule); stroke-width: 0.7; }
+.f-key { fill: var(--accent-2); }
+.f-paper { fill: var(--surface-2); stroke: var(--rule); stroke-width: 1; }
+.f-code { font-family: var(--mono); font-size: 6.4px; fill: var(--ink-2); }
+.f-code-key { fill: var(--accent); }
+.f-link { stroke: var(--accent-2); stroke-width: 1.2; fill: none; stroke-dasharray: 3 2.5; }
+.f-label {
+  font-family: var(--cond);
+  font-size: 7px;
+  fill: var(--ink-3);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- the hero animation
+
+  One table, three forms: the diagram you draw, the file that gets committed, the pull request
+  your team reviews, and the pipeline it becomes. That progression *is* the product's argument,
+  so the figure makes it rather than stating it in a caption.
+
+  Built as CSS keyframes on inline SVG, for three reasons that all matter here. It inherits the
+  page's colour variables, so both themes work with no second palette. It needs no JavaScript, so
+  it still runs when the docs are opened from a local checkout over `file://`. And it is a few
+  hundred bytes rather than a video file.
+
+  Every animation shares one 15s period and is positioned by keyframe percentage rather than by
+  `animation-delay`, so the stages cannot drift apart over a long-lived tab.
+*/
+
+/*
+  Every animated group scales about its own centre, not the SVG's origin.
+
+  `transform-box: fill-box` is what makes `transform-origin: 50% 50%` mean "the middle of this
+  element". Without it an SVG transform is measured from the viewBox corner, and a 3% scale throws
+  the panel across the frame instead of easing it forward.
+*/
+.f-stage, .f-in, .f-n1, .f-n2, .f-n3, .f-cam {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.f-stage { animation: 15s cubic-bezier(0.22, 0.61, 0.36, 1) infinite both; }
+
+/*
+  Committed: 0 to 40%. Reviewed: 40 to 70%. Deployed: 70 to 100%.
+
+  Each panel eases forward as it arrives and recedes as it leaves, so the cut reads as attention
+  moving rather than as two images swapped. The scale is small on purpose: at 3% it is a camera,
+  at 15% it is a slideshow transition.
+*/
+@keyframes f-stage-a {
+  0%, 3% { opacity: 0; transform: scale(0.965) }
+  8%, 36% { opacity: 1; transform: scale(1) }
+  40%, 100% { opacity: 0; transform: scale(1.03) }
+}
+@keyframes f-stage-b {
+  0%, 40% { opacity: 0; transform: scale(0.965) }
+  45%, 66% { opacity: 1; transform: scale(1) }
+  70%, 100% { opacity: 0; transform: scale(1.03) }
+}
+@keyframes f-stage-c {
+  0%, 70% { opacity: 0; transform: scale(0.965) }
+  75%, 96% { opacity: 1; transform: scale(1) }
+  100% { opacity: 0; transform: scale(1.03) }
+}
+
+/*
+  A slow push on the whole scene.
+
+  One and a half percent over fifteen seconds, which nobody consciously notices and everybody
+  feels. It is the difference between a diagram and something that looks alive.
+*/
+@keyframes f-cam { 0%, 100% { transform: scale(1) } 50% { transform: scale(1.015) } }
+.f-cam { animation: f-cam 15s ease-in-out infinite; }
+
+/* The table leans in while it is being drawn, then settles. */
+@keyframes f-cam-draw { 0% { transform: scale(1.05) } 14%, 100% { transform: scale(1) } }
+.f-cam-draw { animation: f-cam-draw 15s cubic-bezier(0.22, 0.61, 0.36, 1) infinite both; }
+
+.f-a { animation-name: f-stage-a; }
+.f-b { animation-name: f-stage-b; }
+.f-c { animation-name: f-stage-c; }
+
+/* The rows arrive one at a time, which is what drawing a table actually feels like. */
+@keyframes f-row-in {
+  0% { opacity: 0; transform: translateX(-5px) }
+  7%, 100% { opacity: 1; transform: none }
+}
+.f-in { animation: f-row-in 15s linear infinite both; transform-box: fill-box; }
+.f-in-1 { animation-delay: 0.15s }
+.f-in-2 { animation-delay: 0.45s }
+.f-in-3 { animation-delay: 0.75s }
+.f-in-4 { animation-delay: 1.05s }
+
+/* The link runs, so the correspondence reads as a direction rather than a coincidence. */
+@keyframes f-flow { to { stroke-dashoffset: -16 } }
+.f-link { animation: f-flow 1.3s linear infinite; }
+
+/* Pipeline nodes waking in order, which is what a run looks like. */
+@keyframes f-node-1 { 0%, 72% { opacity: .28; transform: scale(.97) } 76%, 100% { opacity: 1; transform: scale(1) } }
+@keyframes f-node-2 { 0%, 78% { opacity: .28; transform: scale(.97) } 82%, 100% { opacity: 1; transform: scale(1) } }
+@keyframes f-node-3 { 0%, 84% { opacity: .28; transform: scale(.97) } 88%, 100% { opacity: 1; transform: scale(1) } }
+.f-n1 { animation: f-node-1 15s cubic-bezier(0.22, 0.61, 0.36, 1) infinite both }
+.f-n2 { animation: f-node-2 15s cubic-bezier(0.22, 0.61, 0.36, 1) infinite both }
+.f-n3 { animation: f-node-3 15s cubic-bezier(0.22, 0.61, 0.36, 1) infinite both }
+
+.f-add { fill: var(--good); font-family: var(--mono); font-size: 6.2px; }
+.f-ok { fill: var(--good); font-family: var(--mono); font-size: 6.4px; }
+.f-tick { stroke: var(--good); stroke-width: 1.1; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.f-node { fill: var(--accent-wash); stroke: var(--accent-2); stroke-width: 0.9; }
+.f-node-t { font-family: var(--mono); font-size: 6.4px; fill: var(--accent); font-weight: 500; }
+.f-arrow { stroke: var(--accent-2); stroke-width: 1; fill: none; }
+
+/*
+  Motion is the point of this figure, not decoration, so reduced motion gets the finished
+  first stage rather than a blank panel: the diagram, the file, and the link between them.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .f-stage, .f-in, .f-link, .f-n1, .f-n2, .f-n3, .f-cam, .f-cam-draw { animation: none; }
+  .f-b, .f-c { display: none; }
+  .f-a { opacity: 1; transform: none; }
+}
+
+/* ---------------------------------------------------------------- sections */
+
+.band { border-top: 1px solid var(--rule); padding: 70px 0; }
+
+.band h2 {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: clamp(26px, 3.6vw, 36px);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 0 0 12px;
+  border: 0;
+  padding: 0;
+  text-wrap: balance;
+}
+
+.band .intro {
+  font-size: 17.5px;
+  color: var(--ink-2);
+  max-width: 62ch;
+  margin: 0 0 40px;
+  line-height: 1.55;
+}
+
+.two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 22px;
+}
+
+.idea {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  padding: 26px 28px;
+}
+.idea .n {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 10px;
+}
+.idea h3 { font-family: var(--cond); font-weight: 600; font-size: 21px; margin: 0 0 10px; }
+.idea p { font-size: 15.5px; color: var(--ink-2); margin: 0 0 12px; max-width: none; }
+.idea p:last-child { margin-bottom: 0; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  overflow: hidden;
+}
+.cell { background: var(--surface); padding: 24px 26px; }
+.cell h4 {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 17px;
+  margin: 0 0 7px;
+  color: var(--ink);
+}
+.cell p { font-size: 14.8px; color: var(--ink-2); margin: 0; line-height: 1.5; max-width: none; }
+
+/* ---------------------------------------------------------------- get it */
+
+.get { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 22px; }
+
+.way {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  padding: 26px 28px;
+}
+.way h3 { font-family: var(--cond); font-weight: 600; font-size: 20px; margin: 0 0 6px; }
+.way .who { font-size: 14.5px; color: var(--ink-3); margin: 0 0 16px; }
+.way pre { margin-bottom: 14px; }
+.way p { font-size: 14.8px; color: var(--ink-2); margin: 0; max-width: none; }
+
+.limits { max-width: 68ch; }
+.limits li { font-size: 15.5px; color: var(--ink-2); }
+
+.foot {
+  border-top: 1px solid var(--rule);
+  padding: 34px 0 70px;
+  font-size: 14.5px;
+  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  align-items: baseline;
+}
+.foot a { color: var(--ink-2); }
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; gap: 40px; padding: 56px 0 48px; }
+  .band { padding: 52px 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata</a>
+  <nav>
+    <a href="docs.html">Docs</a>
+    <a href="self-hosting.html">Self-hosting</a>
+    <a href="#get">Get started</a>
+  </nav>
+</header>
+
+<div class="wrap">
+
+  <section class="hero">
+    <div>
+      <h1>Your data model, in your git repo</h1>
+      <p class="sub">
+        A modelling tool for BigQuery that stores the model as plain files in your own repository.
+        So a schema change becomes a pull request your team reviews, not a silent edit to a
+        database nobody can audit.
+      </p>
+      <div class="cta">
+        <a class="btn" href="https://strata-demo.onrender.com">Start with GitHub</a>
+        <a class="btn ghost" href="try.html">Try it without an account</a>
+      </div>
+      <small>
+        Free while in preview. Open source, Apache 2.0. Your models stay in your own repository.
+      </small>
+    </div>
+
+    <div class="figure">
+      <svg viewBox="0 0 340 200" role="img"
+           aria-label="One table in four forms: the diagram you draw, the YAML file that is committed, the pull request your team reviews, and the Dataform pipeline it becomes.">
+      <g class="f-cam">
+        <text class="f-label" x="8" y="12">What you draw</text>
+
+        <!-- The label changes with the panel beneath it, so the sequence needs no caption. -->
+        <text class="f-label f-stage f-a" x="188" y="12">What is committed</text>
+        <text class="f-label f-stage f-b" x="188" y="12">What your team reviews</text>
+        <text class="f-label f-stage f-c" x="188" y="12">What runs in BigQuery</text>
+
+        <!-- ---------------------------------------------------------- the diagram -->
+        <g class="f-cam-draw">
+        <rect class="f-frame" x="8" y="24" width="132" height="92" rx="4"></rect>
+        <path class="f-head" d="M8 28a4 4 0 0 1 4-4h124a4 4 0 0 1 4 4v13H8z"></path>
+        <text class="f-title" x="16" y="36">dim_customer</text>
+
+        <g class="f-in f-in-1">
+          <circle class="f-key" cx="18" cy="52" r="1.9"></circle>
+          <text class="f-row" x="26" y="55">customer_id</text>
+          <line class="f-rule" x1="8" y1="60" x2="140" y2="60"></line>
+        </g>
+        <g class="f-in f-in-2">
+          <text class="f-row" x="26" y="71">customer_name</text>
+          <line class="f-rule" x1="8" y1="76" x2="140" y2="76"></line>
+        </g>
+        <g class="f-in f-in-3">
+          <text class="f-row" x="26" y="87">email_address</text>
+          <line class="f-rule" x1="8" y1="92" x2="140" y2="92"></line>
+        </g>
+        <g class="f-in f-in-4">
+          <text class="f-row" x="26" y="103">created_at</text>
+        </g>
+        </g>
+
+        <!-- ---------------------------------------------------------- the link -->
+        <path class="f-link" d="M140 70 H188"></path>
+        <text class="f-label f-stage f-a" x="147" y="66">same</text>
+        <text class="f-label f-stage f-b" x="145" y="66">diffed</text>
+        <text class="f-label f-stage f-c" x="145" y="66">deployed</text>
+
+        <!-- ---------------------------------------------------------- 1. the file -->
+        <g class="f-stage f-a">
+          <rect class="f-paper" x="188" y="24" width="144" height="150" rx="3"></rect>
+          <text class="f-code" x="196" y="38"><tspan class="f-code-key">kind:</tspan> table</text>
+          <text class="f-code" x="196" y="50"><tspan class="f-code-key">name:</tspan> dim_customer</text>
+          <text class="f-code" x="196" y="62"><tspan class="f-code-key">model:</tspan> shop_warehouse</text>
+          <text class="f-code" x="196" y="74"><tspan class="f-code-key">columns:</tspan></text>
+          <text class="f-code" x="202" y="86">- name: customer_id</text>
+          <text class="f-code" x="210" y="96">dataType: STRING</text>
+          <text class="f-code" x="210" y="106">mode: REQUIRED</text>
+          <text class="f-code" x="202" y="118">- name: email_address</text>
+          <text class="f-code" x="210" y="128">dataType: STRING</text>
+          <text class="f-code" x="210" y="138">classification:</text>
+          <text class="f-code" x="218" y="148">sensitivity: confidential</text>
+          <text class="f-code" x="196" y="162"><tspan class="f-code-key">primaryKey:</tspan></text>
+          <text class="f-code" x="202" y="172">- customer_id</text>
+        </g>
+
+        <!-- ---------------------------------------------------------- 2. the pull request -->
+        <g class="f-stage f-b">
+          <rect class="f-paper" x="188" y="24" width="144" height="150" rx="3"></rect>
+          <text class="f-code" x="196" y="38"><tspan class="f-code-key">#42</tspan> Mark email as confidential</text>
+          <line class="f-rule" x1="188" y1="46" x2="332" y2="46"></line>
+
+          <text class="f-code" x="196" y="60">  - name: email_address</text>
+          <text class="f-code" x="196" y="72">      dataType: STRING</text>
+          <text class="f-add" x="196" y="84">+     classification:</text>
+          <text class="f-add" x="196" y="96">+       sensitivity: confidential</text>
+
+          <line class="f-rule" x1="188" y1="108" x2="332" y2="108"></line>
+          <path class="f-tick" d="M197 120.5 l2 2 3.5-4"></path>
+          <text class="f-ok" x="207" y="122">strata check passed</text>
+          <path class="f-tick" d="M197 134.5 l2 2 3.5-4"></path>
+          <text class="f-ok" x="207" y="136">policy tags resolve</text>
+          <text class="f-code" x="196" y="152">Approved by data-governance</text>
+          <text class="f-code" x="196" y="166"><tspan class="f-code-key">Merged</tspan> into main</text>
+        </g>
+
+        <!-- ---------------------------------------------------------- 3. the pipeline -->
+        <g class="f-stage f-c">
+          <rect class="f-paper" x="188" y="24" width="144" height="150" rx="3"></rect>
+          <text class="f-code" x="196" y="38"><tspan class="f-code-key">dataform</tspan> shop_warehouse</text>
+
+          <g class="f-n1">
+            <rect class="f-node" x="200" y="50" width="120" height="22" rx="3"></rect>
+            <text class="f-node-t" x="208" y="64">declaration: raw_customers</text>
+          </g>
+          <path class="f-arrow" d="M260 72 v12 M256 80 l4 4 4-4"></path>
+
+          <g class="f-n2">
+            <rect class="f-node" x="200" y="90" width="120" height="22" rx="3"></rect>
+            <text class="f-node-t" x="208" y="104">table: dim_customer</text>
+          </g>
+          <path class="f-arrow" d="M260 112 v12 M256 120 l4 4 4-4"></path>
+
+          <g class="f-n3">
+            <rect class="f-node" x="200" y="130" width="120" height="22" rx="3"></rect>
+            <text class="f-node-t" x="208" y="144">assert: customer_id not null</text>
+          </g>
+
+          <text class="f-ok" x="200" y="166">Generated, not hand written</text>
+        </g>
+      </g>
+      </svg>
+    </div>
+  </section>
+
+  <section class="band" id="why">
+    <h2>Two decisions shape everything else</h2>
+    <p class="intro">
+      Strata looks like the modelling tools you already know. Underneath, two choices make it behave
+      very differently.
+    </p>
+
+    <div class="two">
+      <div class="idea">
+        <p class="n">One</p>
+        <h3>The model is files in your git repo</h3>
+        <p>
+          Not a database that can export to git. Actual YAML you can read, diff, review and revert
+          with the tools you already use.
+        </p>
+        <p>
+          So the hard features come for free. History is <code>git log</code>. Two things at once is
+          a branch. Review is a pull request. Undo is a revert. None of it had to be built, so none
+          of it can drift out of step with reality.
+        </p>
+      </div>
+
+      <div class="idea">
+        <p class="n">Two</p>
+        <h3>Standards are enforced in CI, not in the app</h3>
+        <p>
+          <code>strata check</code> runs in your pipeline. Break a naming standard or a referential
+          rule and the pull request cannot merge.
+        </p>
+        <p>
+          This matters more than it sounds. A tool that only enforces rules inside its own window
+          gets bypassed the first time somebody is in a hurry. A gate in the pipeline does not.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <h2>What you get</h2>
+    <p class="intro">
+      Everything listed here is built and tested. What is missing is further down, named plainly.
+    </p>
+
+    <div class="grid">
+      <div class="cell">
+        <h4>Three linked tiers</h4>
+        <p>Conceptual to logical to physical, connected, so you can change the warehouse without
+        touching the business definitions above it.</p>
+      </div>
+      <div class="cell">
+        <h4>A diagram you edit directly</h4>
+        <p>Rename, retype and rekey on the canvas itself. Positions persist to a file, so the
+        layout is versioned like everything else.</p>
+      </div>
+      <div class="cell">
+        <h4>Governance that follows the data</h4>
+        <p>Classification flows from a domain down to a column, and becomes real BigQuery policy
+        tags.</p>
+      </div>
+      <div class="cell">
+        <h4>Column level lineage</h4>
+        <p>What feeds this column, and what breaks if it changes. Ranked by whether it breaks,
+        rewrites or merely informs.</p>
+      </div>
+      <div class="cell">
+        <h4>Real output</h4>
+        <p>BigQuery DDL, Dataform SQLX, and <code>ALTER</code> statements that respect what
+        BigQuery will actually accept.</p>
+      </div>
+      <div class="cell">
+        <h4>Import what you have</h4>
+        <p>erwin XML, DDL scripts and CSV. You do not have to start from nothing.</p>
+      </div>
+      <div class="cell">
+        <h4>Rules you write yourself</h4>
+        <p>Skills live in your repo and run before a proposal. A blocking one refuses it, the same
+        way a validation error does.</p>
+      </div>
+      <div class="cell">
+        <h4>Readable by agents</h4>
+        <p>An MCP server so an AI agent can answer "what feeds this column" directly. Read only, by
+        construction.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="get">
+    <h2>Get started</h2>
+    <p class="intro">
+      Free, with no licence key, no seat counting and no activation. Start in the browser, and run
+      it yourself if you need to.
+    </p>
+
+    <div class="get">
+      <div class="way">
+        <h3>Try it</h3>
+        <p class="who">Nothing to install, nothing to sign up for.</p>
+        <p>
+          Open a scratch workspace in your browser, pre-loaded with a small shop modelled across
+          all three tiers. Nothing you do there touches anything real, and it disappears on its
+          own.
+        </p>
+        <p>
+          <a class="btn" href="try.html">Open the demo</a>
+        </p>
+        <p>
+          To keep what you build, run it yourself. It is one container.
+        </p>
+      </div>
+
+      <div class="way">
+        <h3>Run it yourself</h3>
+        <p class="who">For an internal Enterprise Server, a private BigQuery project, or a review
+        that says the working copy cannot leave your network.</p>
+        <pre><code>docker compose up -d</code></pre>
+        <p>
+          One published image, one Compose file printed in full, nothing to clone. Kubernetes and
+          the Helm chart are covered too.
+        </p>
+        <p>
+          Accounts, backups and what to lock down are in
+          <a href="self-hosting.html">self-hosting</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <h2>What is not built yet</h2>
+    <p class="intro">
+      Said here rather than left for you to discover after installing.
+    </p>
+    <ul class="limits">
+      <li><strong>No live BigQuery connection.</strong> Strata does not read your warehouse, and it
+      cannot reverse engineer a model from one.</li>
+      <li><strong>No drift detection</strong> between the model and the real warehouse.</li>
+      <li><strong>No picking and choosing which changes to apply</strong> when comparing two
+      models. It is all or nothing today.</li>
+      <li><strong>No single sign on.</strong> Local accounts only. Put an authenticating proxy in
+      front if you need SSO.</li>
+      <li><strong>No visual diff</strong> of models. You get git's text diff, which is good but not
+      a picture.</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>Apache 2.0</span>
+    <a href="docs.html">Documentation</a>
+    <a href="try.html">Live demo</a>
+    <a href="security.html">Security</a>
+    <a href="cli.html">CLI</a>
+    <span>Built for BigQuery and Dataform.</span>
+  </div>
+
+</div>
+
+</body>
+</html>

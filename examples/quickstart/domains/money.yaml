@@ -1,0 +1,7 @@
+id: dom_money
+kind: domain
+name: money
+description: An amount in the shop's reporting currency. NUMERIC, never FLOAT64, so totals add up.
+logicalType: decimal
+physicalType: NUMERIC
+nullable: false

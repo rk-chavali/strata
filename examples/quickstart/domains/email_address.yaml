@@ -1,0 +1,11 @@
+id: dom_email_address
+kind: domain
+name: email_address
+description: An email address. Personal data, so it carries a classification the tables inherit.
+logicalType: string
+physicalType: STRING
+nullable: true
+classification:
+  sensitivity: confidential
+  categories:
+    - pii

@@ -1,0 +1,19 @@
+# Normalise line endings.
+#
+# Without this, a contributor on Windows commits CRLF and every file they touch shows as
+# entirely rewritten in the diff : which makes review impossible and buries real changes. Text
+# is stored LF in the repository and checked out native.
+#
+# Set before the first commit deliberately: fixing it later means one enormous whitespace commit
+# that breaks `git blame` for the whole codebase.
+* text=auto eol=lf
+
+# Generated, and noisy in review.
+pnpm-lock.yaml linguist-generated=true -diff
+
+# Binary : never diff or merge these.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

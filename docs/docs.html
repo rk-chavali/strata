@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Strata documentation</title>
+<meta name="description" content="How Strata works, how to run it, and how to configure it. Git-native data modelling for BigQuery and Dataform.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/docs.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="Strata documentation">
+<meta property="og:description" content="How Strata works, how to run it, and how to configure it. Git-native data modelling for BigQuery and Dataform.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/docs.html">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata <span>docs</span></a>
+  <nav>
+    <a href="quickstart.html">Get started</a>
+    <a href="self-hosting.html">Self-hosting</a>
+    <a href="configuration.html">Config</a>
+    <a href="security.html">Security</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <h3>Start here</h3>
+    <a href="docs.html" aria-current="page">Introduction</a>
+    <a href="quickstart.html">Get started</a>
+    <a href="concepts.html">How the model works</a>
+    <h3>Self-hosting</h3>
+    <a href="self-hosting.html">Run it yourself</a>
+    <a href="deploy-cloud.html">Hosting options</a>
+    <a href="configuration.html">Configuration reference</a>
+
+    <h3>Operating it</h3>
+    <a href="security.html">Security</a>
+    <a href="cli.html">CLI reference</a>
+  </aside>
+
+  <main>
+    <p class="eyebrow">Introduction</p>
+    <h1>Your data model, in your git repo</h1>
+    <p class="lede">
+      Strata is a data modelling tool for BigQuery. It looks like the modelling tools you already
+      know, but it stores the model as plain files in your own git repository. That one decision
+      changes almost everything else about how it works.
+    </p>
+
+    <h2>The two ideas</h2>
+
+    <h3>1. The model is files in your git repo</h3>
+    <p>
+      Not a database that can export to git. Actual YAML files that you can read, diff, review
+      and revert with the tools you already use every day.
+    </p>
+    <p>
+      Because of that, a lot of hard features come for free. Version history is
+      <code>git log</code>. Working on two things at once is a branch. Reviewing a change is a
+      pull request. Undoing a bad change is a revert. None of that had to be built, so none of it
+      can drift out of sync with reality.
+    </p>
+    <p>
+      It also means an edit somebody makes in the UI becomes a pull request that a person
+      reviews, instead of a silent change to a database that nobody can audit later.
+    </p>
+
+    <h3>2. Standards are enforced in CI, not in the app</h3>
+    <p>
+      Strata ships a command called <code>strata check</code>. You run it in your pipeline. If a change
+      breaks a naming standard or a referential rule, the pull request cannot merge.
+    </p>
+    <p>
+      This matters more than it sounds. A tool that only enforces rules inside its own window gets
+      bypassed the first time somebody is in a hurry. A gate in the pipeline does not.
+    </p>
+
+    <div class="note">
+      <b>The short version</b>
+      <p>
+        If your team already reviews code in pull requests, Strata lets you review your data model
+        the same way, by the same people, with the same tools.
+      </p>
+    </div>
+
+    <h2>Where to go next</h2>
+
+    <ul class="cards">
+      <li>
+        <a href="quickstart.html">
+          <strong>Get started</strong>
+          <span>Run one container, point it at a git repository, and take the tour of the worked example.</span>
+        </a>
+      </li>
+      <li>
+        <a href="concepts.html">
+          <strong>How the model works</strong>
+          <span>Three tiers, why they are separate, and how a change at one level reaches the
+          next.</span>
+        </a>
+      </li>
+      <li>
+        <a href="self-hosting.html">
+          <strong>Self-hosting</strong>
+          <span>For an internal Enterprise Server, a private BigQuery project, or a review that
+          says the working copy cannot leave your network.</span>
+        </a>
+      </li>
+      <li>
+        <a href="configuration.html">
+          <strong>Configuration</strong>
+          <span>Every environment variable, what it does, and what happens if you leave it
+          out.</span>
+        </a>
+      </li>
+      <li>
+        <a href="security.html">
+          <strong>Security</strong>
+          <span>What Strata protects, what you have to protect, and a checklist before you put it on
+          a public address.</span>
+        </a>
+      </li>
+      <li>
+        <a href="cli.html">
+          <strong>CLI reference</strong>
+          <span>The commands, the exit codes, and how to wire the check into your pipeline.</span>
+        </a>
+      </li>
+    </ul>
+
+    <h2>What Strata does today</h2>
+
+    <p>
+      Written plainly, so nothing surprises you after you have installed it.
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Area</th><th>What you get</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Modelling</td>
+            <td>Three tiers, conceptual to logical to physical, linked together. A diagram canvas
+            you edit directly. A data dictionary covering every field of every object.</td>
+          </tr>
+          <tr>
+            <td>Governance</td>
+            <td>Validation rules you can tune. Naming standards with automatic fixes.
+            Classification that flows from a domain down to a column. Column level lineage and
+            impact analysis. Generated <code>CODEOWNERS</code>.</td>
+          </tr>
+          <tr>
+            <td>Output</td>
+            <td>BigQuery DDL. Dataform SQLX. <code>ALTER</code> statements that respect what
+            BigQuery will actually accept. A data dictionary as Markdown or a single HTML file.
+            Diagram export to SVG or PNG.</td>
+          </tr>
+          <tr>
+            <td>Import</td>
+            <td>erwin XML, DDL scripts, and CSV.</td>
+          </tr>
+          <tr>
+            <td>Workflow</td>
+            <td>An edit becomes a branch, a commit and a pull request. History per model and per
+            object. Compare two models and generate the migration between them.</td>
+          </tr>
+          <tr>
+            <td>Integrations</td>
+            <td>Webhook, Confluence, Jira and GitHub. Each one fires on events you choose, with a
+            delivery log you can read.</td>
+          </tr>
+          <tr>
+            <td>For agents</td>
+            <td>An MCP server so an AI agent can read the model directly and answer questions like
+            "what feeds this column". Read only, by design.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>What is not built yet</h3>
+    <p>Named here so you find out now rather than later.</p>
+    <ul>
+      <li><strong>No live BigQuery connection.</strong> Strata does not read your warehouse, and it
+      cannot reverse engineer a model from one.</li>
+      <li><strong>No drift detection</strong> between the model and the real warehouse.</li>
+      <li><strong>No picking and choosing which changes to apply</strong> when you compare two
+      models. It is all or nothing today.</li>
+      <li><strong>No single sign on.</strong> Local accounts only. If you need SSO, put an
+      authenticating proxy in front of Strata for now.</li>
+      <li><strong>No visual diff</strong> of models. You get git's text diff, which is good but
+      not a picture.</li>
+    </ul>
+
+    <div class="note">
+      <b>No licence key, ever</b>
+      <p>
+        There is no seat counting, no activation and no phone home. You run the image in your own
+        infrastructure and nothing in it talks to us. Access control is the role model plus
+        whatever your network already enforces.
+      </p>
+    </div>
+
+    <div class="nextprev">
+      <a href="quickstart.html">
+        <small>Next</small>
+        <strong>Get started</strong>
+      </a>
+    </div>
+
+    <div class="foot">
+      <p>
+        Strata is licensed under Apache 2.0. Found a security issue? Please read
+        <a href="security.html">Security</a> first and do not open a public issue.
+      </p>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

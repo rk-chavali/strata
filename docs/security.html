@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Strata security: what is protected, and by whom</title>
+<meta name="description" content="The security contract for self-hosting Strata, a checklist before going public, known limits stated plainly, and how to report a vulnerability.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/security.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="Strata security: what is protected, and by whom">
+<meta property="og:description" content="The security contract for self-hosting Strata, a checklist before going public, known limits stated plainly, and how to report a vulnerability.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/security.html">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata <span>docs</span></a>
+  <nav>
+    <a href="quickstart.html">Get started</a>
+    <a href="self-hosting.html">Self-hosting</a>
+    <a href="configuration.html">Config</a>
+    <a href="security.html">Security</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <h3>Start here</h3>
+    <a href="docs.html">Introduction</a>
+    <a href="quickstart.html">Get started</a>
+    <a href="concepts.html">How the model works</a>
+    <h3>Self-hosting</h3>
+    <a href="self-hosting.html">Run it yourself</a>
+    <a href="deploy-cloud.html">Hosting options</a>
+    <a href="configuration.html">Configuration reference</a>
+
+    <h3>Operating it</h3>
+    <a href="security.html" aria-current="page">Security</a>
+    <a href="cli.html">CLI reference</a>
+
+    <h3>On this page</h3>
+    <a href="#contract">Who protects what</a>
+    <a href="#checklist">Before you go public</a>
+    <a href="#does">What Strata does for you</a>
+    <a href="#limits">Known limits</a>
+    <a href="#audit">The audit log</a>
+    <a href="#report">Reporting a problem</a>
+  </aside>
+
+  <main>
+    <p class="eyebrow">Security</p>
+    <h1>What is protected, and by whom</h1>
+    <p class="lede">
+      The most useful thing a self-hosted tool can give a security reviewer is a plain statement of
+      which side of the line each thing sits on. Without it, every review invents its own answer
+      and then asks you to confirm it.
+    </p>
+
+    <h2 id="contract">Who protects what</h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Strata is responsible for</th><th>You are responsible for</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Checking authentication and role on every route</td>
+            <td>Terminating TLS</td>
+          </tr>
+          <tr>
+            <td>Encrypting stored credentials, and never returning them to a browser</td>
+            <td>Who can reach the port, and your firewall</td>
+          </tr>
+          <tr>
+            <td>Refusing to read or write outside the workspace directory</td>
+            <td>Backing up the data volume</td>
+          </tr>
+          <tr>
+            <td>Escaping generated output, so model content cannot become script</td>
+            <td>The scope of the GitHub token you give it</td>
+          </tr>
+          <tr>
+            <td>Never executing model content</td>
+            <td>The permissions on any service account</td>
+          </tr>
+          <tr>
+            <td>Refusing outbound requests to private and link-local addresses</td>
+            <td><strong>Branch protection on your model repository</strong></td>
+          </tr>
+          <tr>
+            <td>Keeping one tenant's workspace and credentials away from another</td>
+            <td>Keeping the image up to date</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="warn">
+      <b>The one people miss</b>
+      <p>
+        Branch protection. Strata generates <code>CODEOWNERS</code> and can refuse to open a proposal,
+        but nothing stops somebody pushing straight to <code>main</code> if the repository does not
+        require review. The governance story is only as strong as the repository settings
+        underneath it.
+      </p>
+    </div>
+
+    <p>
+      <strong>Neither side is responsible</strong> for whether a model somebody approved is
+      correct. Strata validates structure. It does not validate business meaning. Worth saying,
+      because a governance tool invites the assumption that it does both.
+    </p>
+
+    <h2 id="checklist">Before you go public</h2>
+
+    <p>
+      Run through this before Strata is reachable from any network you do not control. It takes about
+      ten minutes.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <h3>Seed the administrator</h3>
+        <p>
+          Set <code>STRATA_ADMIN_USERNAME</code> and <code>STRATA_ADMIN_PASSWORD_HASH</code>. Without
+          them, first run setup is open, and it reopens every time the data directory is empty.
+        </p>
+        <p><strong>How to check:</strong> restart the service and try to load the setup page. You
+        should be sent to sign in instead.</p>
+      </li>
+
+      <li>
+        <h3>Make the data directory persistent</h3>
+        <p>
+          A volume, not an <code>emptyDir</code> and not a container filesystem. Losing it signs
+          everyone out, loses stored credentials and the audit log, and reopens setup unless the
+          admin is seeded.
+        </p>
+        <p><strong>How to check:</strong> restart the service and sign in again. If you have to
+        create an account, the volume is not mounted where you think.</p>
+      </li>
+
+      <li>
+        <h3>Turn on Secure cookies and proxy trust</h3>
+        <p>
+          <code>STRATA_COOKIE_SECURE=true</code> once you are on HTTPS, and
+          <code>STRATA_TRUST_PROXY=true</code> if anything sits in front.
+        </p>
+        <p>
+          Without proxy trust, the sign in throttle counts every visitor against one address, so one
+          attacker can lock out your whole company.
+        </p>
+      </li>
+
+      <li>
+        <h3>Decide what the deployment permits at all</h3>
+        <p>
+          If anonymous people can reach it, set <code>STRATA_FEATURES=""</code>. Otherwise every
+          visitor can configure an integration, which means making your server send a request to a
+          URL of their choosing.
+        </p>
+        <p><strong>How to check:</strong> call <code>/api/integrations</code>. It should return
+        404.</p>
+      </li>
+
+      <li>
+        <h3>Check the headers survived your proxy</h3>
+        <pre><code>curl -sI https://your-host/api/health</code></pre>
+        <p>
+          You want <code>content-security-policy</code>, <code>x-content-type-options</code>,
+          <code>x-frame-options</code> and <code>referrer-policy</code>. If any are missing,
+          something in front of Strata is stripping them.
+        </p>
+      </li>
+
+      <li>
+        <h3>Turn on branch protection</h3>
+        <p>
+          In your model repository, require a review and require the <code>strata check</code> job to
+          pass. This is the step that makes every other governance feature real.
+        </p>
+      </li>
+
+      <li>
+        <h3>Give the GitHub token the smallest scope that works</h3>
+        <p>
+          <code>repo</code> on the model repository. Nothing else. A fine grained token scoped to
+          one repository is better than a classic token that can reach everything you can.
+        </p>
+      </li>
+
+      <li>
+        <h3>Decide about single sign on</h3>
+        <p>
+          Strata has none yet. Local passwords with no second factor on an internet-facing instance is
+          a weak posture. Either put an authenticating proxy in front, or accept the risk knowingly
+          and keep the instance on a private network.
+        </p>
+      </li>
+    </ol>
+
+    <h2 id="does">What Strata does for you</h2>
+
+    <p>Stated so a reviewer does not have to work it out from the source.</p>
+
+    <h3>Access control</h3>
+    <ul>
+      <li>Three ordered roles, checked on the server for every request. The UI hides what your role
+      cannot do, but the server is the thing that enforces it.</li>
+      <li>Passwords are hashed with scrypt. An unknown username takes the same time to reject as a
+      wrong password, so the two cannot be told apart.</li>
+      <li>Sign in has per address and per account backoff, so guessing is not free.</li>
+      <li>Sessions are signed tokens with a twelve hour expiry. The role is read fresh from disk on
+      every request, so demoting somebody takes effect on their next click.</li>
+      <li>The last administrator cannot be removed, so you cannot lock yourself out.</li>
+    </ul>
+
+    <h3>Handling files</h3>
+    <ul>
+      <li>Every path is resolved against the workspace root and checked, including the case where a
+      sibling directory shares a prefix with it. That is the version most implementations get
+      wrong.</li>
+      <li>Null bytes in paths are rejected.</li>
+      <li>git is run with an argument array and no shell, so there is no command injection.</li>
+    </ul>
+
+    <h3>Credentials</h3>
+    <ul>
+      <li>Encrypted with AES-GCM, stored outside the model repository, never sent to a browser.</li>
+      <li>The UI shows the last four characters so you can tell which credential is in place.</li>
+      <li>A mounted file is supported and preferred, so the value never has to touch Strata's own
+      disk.</li>
+      <li>Log lines redact any value under a key that looks like a secret.</li>
+    </ul>
+
+    <h3>Outbound requests</h3>
+    <ul>
+      <li>Hostnames are resolved and checked against loopback, link-local, private and carrier
+      grade NAT ranges before the connection is made.</li>
+      <li>Every address a name resolves to is checked, not just the first, so a name that resolves
+      to one public and one private address is refused.</li>
+      <li>Redirects are followed by hand and each hop is re-checked.</li>
+      <li>The same check applies to git remotes, so a push cannot reach an internal address
+      either.</li>
+    </ul>
+
+    <h3>Output</h3>
+    <ul>
+      <li>Generated HTML escapes cell content. Column descriptions are attacker controlled, and
+      this is what stops a stored script reaching a published wiki page.</li>
+      <li>A content security policy is sent on every response, so a missed escape is a nuisance
+      rather than an incident.</li>
+    </ul>
+
+    <h3>Supply chain</h3>
+    <ul>
+      <li>The server has two runtime dependencies. Almost everything in the lockfile is build and
+      test tooling that never reaches the image.</li>
+      <li>The container runs as a non-root user with a pinned uid, all capabilities dropped, and no
+      privilege escalation.</li>
+      <li>CI pins every GitHub Action to a commit hash rather than a tag, because a tag can be
+      moved.</li>
+    </ul>
+
+    <h2 id="limits">Known limits</h2>
+
+    <p>Said plainly, because a security page that only lists strengths is not useful.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Limit</th><th>What to do about it</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>No single sign on.</strong> Local accounts, no second factor.</td>
+            <td>Put an authenticating proxy in front, or keep the instance on a private
+            network.</td>
+          </tr>
+          <tr>
+            <td><strong>No fine grained permissions.</strong> An editor can edit every model, not
+            just their own.</td>
+            <td>Use separate instances per team if that matters, or rely on branch protection for
+            what actually lands.</td>
+          </tr>
+          <tr>
+            <td><strong>Agent skills read model content that arrives by pull request.</strong> A
+            table description can try to steer the verdict.</td>
+            <td>The blast radius is limited on purpose: agent skills only report, and have no write
+            path. Treat that as a rule, not an accident. Do not rely on an agent skill as your only
+            gate.</td>
+          </tr>
+          <tr>
+            <td><strong>A large model repository can be slow to load.</strong> Strata parses what is
+            in the repository.</td>
+            <td>Normal for a repository you control. Worth knowing if you let untrusted people open
+            pull requests against it.</td>
+          </tr>
+          <tr>
+            <td><strong>An administrator with shell access can edit the audit log.</strong></td>
+            <td>Ship the structured logs to your own pipeline if you need tamper resistance. Strata
+            writes them to stdout in a form a collector can index.</td>
+          </tr>
+          <tr>
+            <td><strong>One replica only.</strong></td>
+            <td>Not a security limit, but worth knowing: there is no high availability story
+            today.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="audit">The audit log</h2>
+
+    <p>
+      Model changes are already auditable, because they are commits. Instance changes were not, and
+      that was the gap: an administrator could disable a blocking governance rule and leave no trace
+      anywhere, so the next pull request merged without a control everybody believed was running.
+    </p>
+
+    <p>The audit log records who did the privileged things:</p>
+
+    <ul>
+      <li>Signing in, and failing to sign in</li>
+      <li>Creating the first administrator</li>
+      <li>Creating, changing, disabling or removing an account</li>
+      <li>Setting or clearing a credential</li>
+      <li>Saving, testing or deleting an integration</li>
+      <li>Enabling or disabling a governance skill</li>
+      <li>Changing settings, file layout, or the git remote</li>
+    </ul>
+
+    <p>
+      Administrators read it in the UI, or from <code>/api/audit</code>. It is append only, one JSON
+      object per line, in the data directory. Passwords never appear in it.
+    </p>
+
+    <p>
+      It is not tamper proof, and pretending otherwise would be theatre. It answers "what changed
+      and who changed it" for an honest operator and for an incident review. If you need more than
+      that, collect the structured logs off the machine.
+    </p>
+
+    <h2 id="report">Reporting a problem</h2>
+
+    <p>
+      Please do not open a public issue. A public issue tells everyone running Strata about the problem
+      at the same moment it tells us.
+    </p>
+
+    <p>
+      Use GitHub's private vulnerability reporting, on the Security tab of the repository, or the
+      address in the repository’s <code>SECURITY.md</code>.
+    </p>
+
+    <p>Things we would especially like to hear about:</p>
+    <ul>
+      <li>Anything that lets a user act above their role</li>
+      <li>Anything that lets one tenant read or write another tenant's workspace or credentials</li>
+      <li>Anything that escapes the workspace directory</li>
+      <li>Anything that makes the server send a request somewhere it should not</li>
+      <li>Anything that gets a stored credential back out to a browser</li>
+      <li>Anything that turns model content into executed code or unescaped HTML</li>
+    </ul>
+
+    <p>
+      You do not need a working exploit. A clear description of the flaw is enough. See
+      the repository’s <code>SECURITY.md</code> for what is out of scope and what response times to
+      expect.
+    </p>
+
+    <div class="nextprev">
+      <a href="configuration.html">
+        <small>Previous</small>
+        <strong>Configuration reference</strong>
+      </a>
+      <a href="cli.html">
+        <small>Next</small>
+        <strong>CLI reference</strong>
+      </a>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

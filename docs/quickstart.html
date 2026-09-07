@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Quickstart: run Strata in five minutes</title>
+<meta name="description" content="Get Strata running with Docker or from source, then take a guided tour of an example model across all three tiers.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/quickstart.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="Quickstart: run Strata in five minutes">
+<meta property="og:description" content="Get Strata running with Docker or from source, then take a guided tour of an example model across all three tiers.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/quickstart.html">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata <span>docs</span></a>
+  <nav>
+    <a href="quickstart.html">Get started</a>
+    <a href="self-hosting.html">Self-hosting</a>
+    <a href="configuration.html">Config</a>
+    <a href="security.html">Security</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <h3>Start here</h3>
+    <a href="docs.html">Introduction</a>
+    <a href="quickstart.html" aria-current="page">Get started</a>
+    <a href="concepts.html">How the model works</a>
+    <h3>Self-hosting</h3>
+    <a href="self-hosting.html">Run it yourself</a>
+    <a href="deploy-cloud.html">Hosting options</a>
+    <a href="configuration.html">Configuration reference</a>
+
+    <h3>Operating it</h3>
+    <a href="security.html">Security</a>
+    <a href="cli.html">CLI reference</a>
+
+    <h3>On this page</h3>
+    <a href="#tour">Take the tour</a>
+    <a href="#own">Your own models</a>
+    <a href="#gate">Add the CI gate</a>
+    <a href="#trouble">If it does not work</a>
+  </aside>
+
+  <main>
+    <p class="eyebrow">Getting started</p>
+    <h1>Your first model, in five minutes</h1>
+    <p class="lede">
+      Run one container, point it at a git repository, and start modelling. No database, no
+      account to create anywhere, nothing that phones home.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <h3>Run it</h3>
+        <p>
+          One command, on any machine with Docker:
+        </p>
+        <pre><code>docker run --rm -p 4000:4000 -e STRATA_WORKSPACE=examples/quickstart ghcr.io/rk-chavali/strata</code></pre>
+        <p>
+          Open <a href="http://localhost:4000">localhost:4000</a>. The first person to reach a
+          fresh instance creates the administrator, so there is no default password to change.
+        </p>
+      </li>
+
+      <li>
+        <h3>Point it at your repository</h3>
+        <p>
+          Bind-mount the git repository that should hold your models, and it stays an ordinary
+          checkout on your machine: <code>git log</code> there shows exactly what the tool did.
+        </p>
+        <pre><code>docker run --rm -p 4000:4000 -v /srv/data-models:/workspace ghcr.io/rk-chavali/strata</code></pre>
+        <p>
+          Whoever can push to that repository can review and merge model changes, through the same
+          pull requests they already use. That is most of user management.
+        </p>
+      </li>
+
+      <li>
+        <h3>Look around the example</h3>
+        <p>
+          A new workspace opens on a small worked example: a shop, modelled across all three
+          tiers. Small enough to hold in your head, complete enough to show the whole chain. The
+          tour below walks through it.
+        </p>
+      </li>
+    </ol>
+
+    <div class="note">
+      <b>Want to look around first?</b>
+      <p>
+        <a href="try.html">Try it without an account</a>. You get a private scratch workspace
+        seeded with the example, nothing is saved, and no repository is touched. Useful for seeing
+        what this is before you point it at anything of your own.
+      </p>
+    </div>
+
+    <div class="note">
+      <b>Need to run it yourself?</b>
+      <p>
+        If your repositories live on an internal GitHub Enterprise Server, if your BigQuery project
+        is only reachable from inside your network, or if a review says the working copy cannot
+        leave your infrastructure, then <a href="self-hosting.html">self-host</a> instead. Same
+        software, and the tour below applies either way.
+      </p>
+    </div>
+
+    <h2 id="tour">Take the tour</h2>
+
+    <p>
+      The example is deliberately small: two concepts become two entities become two BigQuery
+      tables. Small enough to hold in your head, complete enough to show the whole chain.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <h3>Look at the three tiers</h3>
+        <p>
+          Open <strong>Models</strong> in the sidebar. You will see three:
+        </p>
+        <ul>
+          <li><code>shop_concept</code> is what the business talks about. Customer. Order. No
+          types, no keys, just ideas and how they relate.</li>
+          <li><code>shop_logical</code> gives those ideas attributes, keys and logical types. Still
+          nothing about BigQuery.</li>
+          <li><code>shop_warehouse</code> is the real thing. <code>STRING</code>,
+          <code>NUMERIC</code>, partitioning, clustering.</li>
+        </ul>
+        <p>
+          These are not three views of one thing. They are three models, linked, so you can change
+          the physical layer without touching the business definitions above it.
+        </p>
+      </li>
+
+      <li>
+        <h3>Edit on the diagram</h3>
+        <p>Open <code>shop_warehouse</code>, then the <strong>Shop Mart</strong> diagram.</p>
+        <ul>
+          <li>Double click a box title to rename the table.</li>
+          <li>Double click a row to change a column name or type.</li>
+          <li>Click <strong>Add column</strong> on a box to append one.</li>
+          <li>Right click a row to make it part of the primary key.</li>
+        </ul>
+        <p>
+          Making a column part of the primary key also marks it as required, because a nullable
+          key is not a key. Strata does that for you rather than reporting an error you then have to
+          go and fix.
+        </p>
+      </li>
+
+      <li>
+        <h3>Break something on purpose</h3>
+        <p>
+          Rename <code>customer_id</code> on <code>dim_customer</code> to something else. Then open
+          <strong>Problems</strong>.
+        </p>
+        <p>
+          You will see the relationship to <code>fct_order</code> is now broken. Problems groups
+          findings by rule, so one bad naming standard reads as "one rule, forty places" instead of
+          forty separate things to read.
+        </p>
+        <p>Rename it back when you are done.</p>
+      </li>
+
+      <li>
+        <h3>See what it would generate</h3>
+        <p>
+          On the model page, open the <strong>Output</strong> tab. This shows a changeset, not an
+          inventory: the files that would change, not the ones that would not.
+        </p>
+      </li>
+
+      <li>
+        <h3>Try the command palette</h3>
+        <p>
+          Press <code>Ctrl</code> + <code>K</code>, or <code>Cmd</code> + <code>K</code> on a Mac.
+          Type <code>order</code>.
+        </p>
+        <p>
+          It searches commands, models and every object on the server, all the way down to column
+          names. You do not need to know which model or folder something lives in to find it.
+        </p>
+      </li>
+    </ol>
+
+    <h2 id="own">Working in your own models</h2>
+
+    <p>
+      You already chose the repository when you signed in, so there is nothing further to point
+      anywhere. To work in a different one, open the workspace menu and pick another.
+    </p>
+
+    <p>
+      If the repository was empty, Strata offers to set it up on the first screen. That writes a
+      <code>strata.config.yaml</code> and a <code>.gitattributes</code>. The
+      <code>.gitattributes</code> matters more than it looks: it pins model files to LF line
+      endings. Without it, git on Windows checks every file back out as CRLF, every file looks
+      modified, and the diffs this tool exists to produce get buried.
+    </p>
+
+    <p>
+      Everything you change becomes a commit and a pull request in that repository. Nothing is
+      stored anywhere you cannot see: <code>git log</code> in your own checkout shows exactly what
+      Strata did.
+    </p>
+
+    <h2 id="gate">Add the CI gate</h2>
+
+    <p>
+      This is the step that turns Strata from a drawing tool into a governance system, and it is the
+      one people skip. It takes two minutes.
+    </p>
+
+    <p>In your model repository, add this file:</p>
+
+    <p class="filename">.github/workflows/strata-check.yml</p>
+    <pre><code>name: strata check
+
+on: [pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx @strata/cli check --format github</code></pre>
+
+    <p>
+      Then turn on branch protection for <code>main</code> and require that check to pass.
+    </p>
+
+    <p>
+      <code>--format github</code> makes the findings appear as annotations on the changed lines of
+      the pull request, rather than as a wall of text in a log nobody opens.
+    </p>
+
+    <div class="note">
+      <b>Why this matters</b>
+      <p>
+        Strata can refuse to open a proposal when the model is invalid, but somebody can always push
+        straight to <code>main</code> and go around it. Branch protection plus this check is what
+        makes the rule real. Strata also generates a <code>CODEOWNERS</code> file from model
+        ownership, so the right person has to approve.
+      </p>
+    </div>
+
+    <h2 id="trouble">If it does not work</h2>
+
+    <p class="muted">
+      Running your own instance? The environment and proxy problems are on the
+      <a href="self-hosting.html">self-hosting</a> page instead.
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>What you see</th><th>What is wrong</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>The first page takes about a minute</td>
+            <td>Cloud sleeps after fifteen minutes of no traffic while it is free, and the first
+            request wakes it. Later requests are immediate.</td>
+          </tr>
+          <tr>
+            <td>Your repository is not in the list</td>
+            <td>Only repositories you can <em>write</em> to are offered, because a read-only one
+            could never receive a change. Ask for write access, or pick another.</td>
+          </tr>
+          <tr>
+            <td>"This invitation is no longer valid"</td>
+            <td>Invitation links work once and expire after seven days. Ask whoever sent it for a
+            new one.</td>
+          </tr>
+          <tr>
+            <td>Every file looks modified in git and you did not touch them</td>
+            <td>Line endings. Add the <code>.gitattributes</code> that <code>strata init</code>
+            writes, then re-check out the files.</td>
+          </tr>
+          <tr>
+            <td>"Too many sign-in attempts"</td>
+            <td>Working as intended. Wait the number of seconds it tells you. The delay resets
+            after a successful sign in.</td>
+          </tr>
+          <tr>
+            <td>Something went wrong on the server</td>
+            <td>Copy the request id from the message. Search your server logs for it and you will
+            find the exact line, with the real error.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="nextprev">
+      <a href="docs.html">
+        <small>Previous</small>
+        <strong>Introduction</strong>
+      </a>
+      <a href="self-hosting.html">
+        <small>Next</small>
+        <strong>Self-hosting</strong>
+      </a>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

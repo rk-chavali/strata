@@ -1,0 +1,242 @@
+name: CI
+
+# Every push and every pull request. There are 735 tests and nothing ran them before this file
+# existed, so the first outside contribution would have been reviewed by reading, and the first
+# regression would have landed silently.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel an in-progress run when the same branch is pushed again. A superseded run tells you
+# about code nobody is going to merge.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: "Lint, typecheck, test (node ${{ matrix.node }}, ${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    # Two axes, and each one tests a claim this repo already makes out loud.
+    #
+    # `engines.node` says ">=20.11", which nothing checked: CI ran Node 22 only, so the
+    # supported floor was a promise rather than a tested fact. And Strata is a file-and-git
+    # tool, which puts it exactly where Windows differs from Linux: path separators, line
+    # endings, and files that cannot be deleted while a handle is open. The suite does pass
+    # on Windows today, so this leg locks in behaviour that currently holds by luck.
+    #
+    # `fail-fast: false` because "it broke on one of four legs" is the interesting result,
+    # and cancelling the others throws away which ones.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ["20", "22"]
+      fail-fast: false
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
+        with:
+          version: 9.15.0
+
+      - name: Install Node
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Before the build, because it runs in well under a second across the whole tree and a
+      # lint failure should not wait behind a four-minute compile to be reported.
+      - name: Lint
+        run: pnpm lint
+
+      # Git identity, because several server suites create real repositories and commit to
+      # them. Without it `git commit` fails outright and the failure reads as a test bug.
+      #
+      # `shell: bash` is stated rather than left to the default: the Windows runner defaults
+      # to pwsh, and a multi-line `run:` written for one shell quietly means something else
+      # in the other.
+      - name: Configure git for the test suites
+        shell: bash
+        run: |
+          git config --global user.name "strata ci"
+          git config --global user.email "ci@strata.invalid"
+          git config --global init.defaultBranch main
+          # Git for Windows ships with autocrlf on. This repository is safe either way because
+          # .gitattributes pins eol=lf, but the throwaway repositories the test suites create
+          # have no .gitattributes, so without this their commits round-trip through CRLF and
+          # the diff assertions fail for a reason unrelated to the code under test.
+          git config --global core.autocrlf false
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+  image:
+    name: Build the container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # The image is the artefact people actually consume, and it has broken silently before
+    # without any test noticing: a missing workspace manifest in the Dockerfile produced an
+    # image that installed cleanly and failed at runtime. Building it here is the only thing
+    # that catches that class of defect.
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Required before the build, and the reason is not obvious.
+      #
+      # A runner's default buildx driver is `docker`, which cannot export a build cache. Asking
+      # for `cache-to: type=gha` without this step fails with "Cache export is not supported for
+      # the docker driver" before a single layer is built. This sets up the `docker-container`
+      # driver, which can.
+      - name: Set up buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
+        with:
+          context: .
+          push: false
+          tags: strata:ci
+          # Loaded into the runner's docker daemon rather than discarded, because the smoke
+          # test below has to actually run it. Building an image nobody starts is what let a
+          # first-run failure ship.
+          load: true
+          # Worth the extra step above. This image is a full pnpm install plus a UI and server
+          # compile, so an uncached build is minutes. The cache makes a docs-only commit cheap.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Run the image the way the README tells a stranger to run it.
+      #
+      # This exists because building the image was not enough. The container ran as a non-root
+      # user against root-owned state directories, so it booted, served the UI, and then failed
+      # every documented first-run with a 500 and `EACCES` on the data directory. 866 unit tests
+      # passed throughout, because they execute as the host user and never touch the image.
+      #
+      # Creating the administrator is the assertion that matters: it is the first thing any
+      # operator does, it is the first write to `STRATA_DATA_DIR`, and nothing before it touches
+      # the filesystem, so a green health check proves almost nothing. Reading the model back
+      # afterwards proves the session, the role guard and the workspace loader all work too.
+      - name: Smoke test the image
+        run: |
+          set -euo pipefail
+
+          docker run -d --name strata-smoke -p 4000:4000 \
+            -e STRATA_WORKSPACE=examples/quickstart \
+            strata:ci
+
+          # Poll rather than sleep: the server is usually up in under a second, and a fixed
+          # wait would be either flaky or wasteful.
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:4000/api/health >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS http://localhost:4000/api/health
+
+          # The first-run write. A 500 here is the bug this whole step exists to catch.
+          status=$(curl -s -o /tmp/setup.json -w '%{http_code}' -c /tmp/jar \
+            -X POST http://localhost:4000/api/auth/setup \
+            -H 'content-type: application/json' \
+            -d '{"username":"smoke","password":"smoke-test-password-not-a-secret"}')
+          if [ "$status" != "201" ]; then
+            echo "::error::first-run admin creation returned $status, expected 201"
+            cat /tmp/setup.json
+            docker logs strata-smoke
+            exit 1
+          fi
+
+          # The workspace loads, and the session from setup is accepted.
+          detail=$(curl -fsS -b /tmp/jar http://localhost:4000/api/health/detail)
+          echo "$detail"
+          echo "$detail" | grep -q '"workspaceLoads":true'
+          echo "$detail" | grep -q '"needsSetup":false'
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs strata-smoke || true
+
+      - name: Stop the smoke test container
+        if: always()
+        run: docker rm -f strata-smoke || true
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
+        with:
+          version: 9.15.0
+
+      - name: Install Node
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Production dependencies only, and only high severity or worse.
+      #
+      # The full audit is dominated by build and test tooling, which does not run in the
+      # image and is not reachable by anyone using strata. Failing the build on those would
+      # train everyone to ignore this job, which is worse than not having it.
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level high
+
+  model:
+    name: Validate the example workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # strata checking strata's own example. If `strata check` is the gate we ask every customer to put
+    # in their pipeline, it should be in ours.
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
+        with:
+          version: 9.15.0
+
+      - name: Install Node
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Check
+        run: node packages/cli/dist/bin.js check --cwd examples/quickstart --format github

@@ -1,0 +1,32 @@
+{
+  "name": "@strata/cli",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "strata \u2014 the data modelling CLI: validate, lint and reorganise a model repo, in a terminal or in CI",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "strata": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dev": "tsx src/bin.ts"
+  },
+  "dependencies": {
+    "@strata/ddl": "workspace:*",
+    "@strata/metamodel": "workspace:*",
+    "@strata/query": "workspace:*",
+    "@strata/storage": "workspace:*"
+  }
+}

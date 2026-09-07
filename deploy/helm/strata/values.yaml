@@ -1,0 +1,216 @@
+# strata, self-hosted configuration.
+#
+# **This file is the source of truth for a self-hosted instance.**
+#
+# Everything here becomes an environment variable on the pod, and anything supplied that
+# way is *read-only in the UI*, the Settings screen shows it as "set by your deployment"
+# rather than letting someone click a button and create drift that the next
+# `helm upgrade` silently reverts.
+#
+# The exception, deliberately, is modelling configuration, lint rules, naming standards,
+# file layout, DDL output. Those live in `strata.config.yaml` inside your *model* repository,
+# not here, because they are decisions made by data architects and reviewed as pull
+# requests alongside the models they govern. Editing them in the UI writes that file and
+# shows up in Changes, so it still lands as a reviewable commit rather than a live mutation.
+
+# ---------------------------------------------------------------- image
+
+image:
+  # The published image, so `helm install oci://...` works with no values file at all.
+  #
+  # A bare name like `strata` would send the kubelet to Docker Hub, where nothing of that
+  # name exists, and the install would fail with ImagePullBackOff on a first run. Local
+  # workflows that side-load an image override this in values-kind.yaml.
+  repository: ghcr.io/rk-chavali/strata
+  tag: "" # defaults to .Chart.AppVersion
+  # Version tags are immutable once published, so there is nothing to re-pull. Override to
+  # `Always` only if you deploy a moving tag such as `latest`.
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ---------------------------------------------------------------- the model repository
+
+model:
+  # HTTPS URL of the git repository holding your models.
+  #
+  # On Kubernetes there is no host directory to bind-mount, so the container clones this
+  # on startup. Leave empty only if you are mounting an existing checkout yourself via
+  # `extraVolumes`.
+  #
+  #   repo: https://github.com/your-org/data-models.git
+  repo: ""
+
+  # Branch to check out. Empty uses the repository's default branch.
+  branch: ""
+
+  # Where the checkout lands inside the container. Kept on the persistent volume so that
+  # uncommitted work survives a restart, losing a half-finished model on a pod eviction
+  # would be a nasty surprise, even though git is the real source of truth.
+  path: /data/workspace
+
+# ---------------------------------------------------------------- authentication
+
+auth:
+  # `true` requires sign-in. The first person to open a fresh instance creates the
+  # administrator, so there is no default password to forget to change.
+  #
+  # Setting this false means anyone who can reach the Service can edit your models. Only
+  # do it behind something else that authenticates.
+  enabled: true
+
+  # Send the session cookie with the `Secure` attribute. **Set true whenever you serve
+  # over HTTPS**, which is any real ingress. Left false by default because the local
+  # `kubectl port-forward` flow is plain HTTP, and a Secure cookie over HTTP is simply
+  # dropped by the browser, which presents as "sign-in appears to work but I stay signed
+  # out", a genuinely confusing failure to debug.
+  cookieSecure: false
+
+# ---------------------------------------------------------------- git credentials
+
+github:
+  # A token lets the tool open pull requests for you. Without one it still branches,
+  # commits and pushes, then hands back a prefilled compare link.
+  #
+  # Three ways to supply it, in the order you should prefer them.
+
+  # 1. Point at a Secret you manage, External Secrets, Vault, Secrets Store CSI. The
+  #    chart never sees the value. This is the right answer for production.
+  existingSecret: ""
+  existingSecretKey: token
+
+  # 2. Let the chart create a Secret from this value. Convenient for a local test; it
+  #    means the token passes through `helm --set` and into your shell history, so do not
+  #    do this in production.
+  token: ""
+
+  # The token is mounted as a *file* and passed via STRATA_GITHUB_TOKEN_FILE rather than as
+  # an environment variable. Env vars leak into `kubectl describe pod`, crash dumps and
+  # any process that reads /proc; a mounted file does not, and it also rotates without a
+  # pod restart.
+  mountPath: /secrets/github
+
+# Commit attribution when no user is signed in. A signed-in user's own name is used in
+# preference to this.
+git:
+  authorName: strata
+  authorEmail: strata@localhost
+
+# ---------------------------------------------------------------- persistence
+
+persistence:
+  # Holds accounts, the session signing secret, the encrypted token and the model
+  # checkout. **Losing this signs everyone out** and forces first-run setup again; it does
+  # not lose any models, because those are in git.
+  enabled: true
+  size: 2Gi
+  # Empty uses the cluster default StorageClass. kind ships `standard`.
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  # Mount point. STRATA_DATA_DIR and the model checkout both live under here.
+  mountPath: /data
+  existingClaim: ""
+
+# ---------------------------------------------------------------- workload
+
+# Deliberately not exposed as a tunable.
+#
+# One replica is the supported shape, and it is a correctness constraint rather than a
+# performance one: presence and advisory locks are per-process, and the git working tree
+# is shared mutable state that two pods writing one ReadWriteOnce volume would corrupt.
+# The deployment strategy is `Recreate` for the same reason, a RollingUpdate would run
+# two pods against that volume during every upgrade.
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 80
+  # Only used when type is NodePort. kind maps these to the host.
+  nodePort: null
+
+ingress:
+  enabled: false
+  className: nginx
+  host: strata.example.com
+  tls:
+    enabled: false
+    secretName: ""
+  annotations:
+    # **Essential, not optional.** The UI holds a long-lived server-sent-events connection
+    # for presence and live updates. A proxy that buffers responses holds those events
+    # until the buffer fills, which looks exactly like the feature silently not working.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    # No CPU limit on purpose: throttling a Node process mid-`git clone` or mid-YAML-parse
+    # produces latency spikes that read as the app hanging. Memory is capped because a
+    # runaway there is a real risk; CPU contention is self-correcting.
+    memory: 1Gi
+
+# The image runs as uid/gid 10001, pinned in the Dockerfile. `fsGroup` is what makes the
+# PersistentVolume writable by that non-root user.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false # git writes temp files and config outside /data
+  capabilities:
+    drop: ["ALL"]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+
+# Escape hatches for anything the chart does not model, an SSH deploy key, a CA bundle,
+# a mounted checkout instead of a clone.
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []
+
+# ---------------------------------------------------------------- merge detection
+
+watch:
+  # How often the default branch is polled for merges, in milliseconds.
+  #
+  # Set 0 to switch merge detection off entirely. Worth doing on a shared instance behind a
+  # rate-limited enterprise remote: with polling off, integrations still fire on `proposed`
+  # and `validationFailed`, and only `merged` stops.
+  intervalMs: 60000
+
+# ---------------------------------------------------------------- capability credentials
+
+# Agent skills and the BigQuery policy tag sync each need a credential.
+#
+# **Deliberately not settable here.** Both are secrets, and a value in `values.yaml` passes
+# through Helm, `--set` and your shell history, the same reason `github.existingSecret` is
+# preferred over `github.token` above. Store them in the app instead: Settings keeps them in the
+# encrypted secret store, and they survive a restart without appearing in any manifest.
+#
+#   skills.apiKey        model provider key, for `kind: agent` skills
+#   gcp.serviceAccount   Google service account JSON, for the policy tag sync
+#
+# If you must inject them, use `extraEnv` with a secretKeyRef:
+#
+#   extraEnv:
+#     - name: STRATA_SKILLS_API_KEY
+#       valueFrom:
+#         secretKeyRef: { name: strata-model-provider, key: apiKey }
+#
+# `STRATA_GCP_ACCESS_TOKEN` is deliberately absent from this list: it holds a token that expires in
+# about an hour, so it suits trying the sync out, not running it.
+
+# Override the Data Catalog endpoint. For VPC Service Controls or a private endpoint.
+# Leave empty for Google's public API.
+gcpCatalogBase: ""

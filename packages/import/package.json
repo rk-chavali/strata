@@ -1,0 +1,26 @@
+{
+  "name": "@strata/import",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Import erwin, DDL and tabular models into the metamodel",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@strata/metamodel": "workspace:*",
+    "fast-xml-parser": "^5.11.1"
+  }
+}

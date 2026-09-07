@@ -1,0 +1,237 @@
+/*
+  The way in: signing in, first-run setup, and redeeming an invitation.
+
+  One screen, three modes, rather than three screens. They are the same decision from the visitor's
+  side ("get me into this instance") and the differences are a couple of fields, so switching
+  between them should feel like a panel changing rather than a page navigating.
+
+  Form on the left at a fixed width, visual on the right taking the rest. The form is the thing
+  being used, so it gets a comfortable measure and a predictable position rather than sliding
+  around as the window resizes; the visual absorbs the slack.
+*/
+
+.auth {
+  display: grid;
+  grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+  min-height: 100%;
+  background: var(--n0);
+}
+
+/* ---------------------------------------------------------------- the form side */
+
+/*
+  Centred by auto margins, not by `justify-content`.
+
+  A centred flex container clips overflow at *both* ends and cannot be scrolled to, so on a short
+  window the first-run form lost its last paragraph off the bottom with no way to reach it. Auto
+  margins centre while there is room and collapse to zero when there is not, which leaves the
+  overflow scrollable.
+*/
+.auth__form {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: var(--s9) clamp(32px, 4vw, 64px);
+}
+
+.auth__inner { width: 100%; max-width: 340px; margin: auto; }
+
+.auth__brand {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  margin: 0 0 var(--s8);
+  color: var(--n9);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* The theme toggle sits opposite the wordmark, which is the only other thing on this line. */
+.auth__brand .iconbtn { margin-left: auto; }
+
+.auth__title {
+  margin: 0 0 var(--s3);
+  color: var(--n9);
+  font-size: var(--fs-3xl);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.auth__sub { margin: 0 0 var(--s8); color: var(--n7); font-size: var(--fs-md); line-height: 1.55; }
+
+/*
+  Modes cross-fade rather than cut.
+
+  A hard swap between two forms of different heights makes the card jump, which reads as a page
+  reload and loses the sense that this is one screen with two answers.
+*/
+@keyframes auth-in {
+  from { opacity: 0; transform: translateY(6px) }
+  to { opacity: 1; transform: none }
+}
+.auth__mode { animation: auth-in 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+.auth__divider {
+  display: flex;
+  gap: var(--s5);
+  align-items: center;
+  margin: var(--s7) 0;
+  color: var(--n6);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.auth__divider::before,
+.auth__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* The mode switch. A quiet line, not a pair of tabs: one of the two is always the odd case. */
+.auth__switch {
+  margin: var(--s8) 0 0;
+  color: var(--n7);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+.auth__switch button {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.auth__switch button:hover { text-decoration: underline; }
+
+.auth__note {
+  margin: var(--s7) 0 0;
+  padding: var(--s6) 0 0;
+  border-top: 1px solid var(--border);
+  color: var(--n6);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+.auth__note p { margin: 0 0 var(--s4); }
+.auth__note p:last-child { margin-bottom: 0; }
+
+/* ---------------------------------------------------------------- the visual side */
+
+/*
+  A fixed dark canvas, in both themes.
+
+  Everything else here follows the theme. This panel deliberately does not, and the reason is that
+  it is a canvas rather than a surface: it is standing in for the diagram you are about to open,
+  and a drawing surface reads as one at any brightness. Following the theme washed it out to
+  near-white in light mode, which left the form floating on nothing.
+
+  Its own palette rather than the global tokens, so the art keeps its contrast whichever theme is
+  active and cannot be knocked out by a change to the application's surfaces.
+*/
+.auth__visual {
+  --art-bg: #0f1319;
+  --art-surface: #161c25;
+  --art-line: #27313f;
+  --art-ink: #eef1f5;
+  --art-ink-2: #9aa6b5;
+  --art-accent: #6ba4ff;
+  --art-accent-soft: #17233a;
+
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--s9);
+  background:
+    radial-gradient(ellipse 90% 70% at 60% 30%, #18233a 0%, transparent 70%),
+    linear-gradient(160deg, #131a26 0%, var(--art-bg) 60%);
+  border-left: 1px solid var(--border);
+}
+
+/* The canvas grid. One weight, because the ground beneath it no longer changes with the theme. */
+.auth__visual::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--art-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--art-line) 1px, transparent 1px);
+  background-size: 34px 34px;
+  opacity: 0.5;
+  mask-image: radial-gradient(ellipse 80% 70% at 55% 40%, #000 15%, transparent 78%);
+  pointer-events: none;
+}
+
+.auth__art {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(78%, 560px);
+  height: auto;
+  transform: translate(-50%, -58%);
+}
+
+.auth__caption { position: relative; max-width: 42ch; }
+.auth__caption strong {
+  display: block;
+  margin-bottom: var(--s4);
+  color: var(--art-ink);
+  font-size: var(--fs-xl);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.auth__caption span { color: var(--art-ink-2); font-size: var(--fs-md); line-height: 1.6; }
+
+/* ---------------------------------------------------------------- the constellation */
+
+.a-node { fill: var(--art-surface); stroke: var(--art-line); stroke-width: 1; }
+.a-head { fill: var(--art-accent-soft); }
+.a-title { font-family: var(--mono); font-size: 6.5px; fill: var(--art-accent); font-weight: 600; }
+.a-row { font-family: var(--mono); font-size: 5.4px; fill: var(--art-ink-2); }
+.a-rule { stroke: var(--art-line); stroke-width: 0.5; }
+.a-tier { font-family: var(--mono); font-size: 5px; fill: var(--art-ink-2); letter-spacing: 0.12em; opacity: 0.75; }
+.a-dot { fill: var(--art-accent); }
+
+/* Edges draw themselves, which is what makes it read as a model being built rather than a picture. */
+.a-edge {
+  stroke: var(--art-accent);
+  stroke-width: 1;
+  fill: none;
+  stroke-dasharray: 3 2.5;
+  animation: a-flow 1.6s linear infinite;
+}
+@keyframes a-flow { to { stroke-dashoffset: -11 } }
+
+@keyframes a-rise {
+  from { opacity: 0; transform: translateY(5px) }
+  to { opacity: 1; transform: none }
+}
+.a-in { transform-box: fill-box; transform-origin: 50% 50%; animation: a-rise 620ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.a-in-1 { animation-delay: 120ms }
+.a-in-2 { animation-delay: 300ms }
+.a-in-3 { animation-delay: 480ms }
+
+/* ---------------------------------------------------------------- responsive */
+
+/*
+  Below 940px the visual is dropped rather than stacked.
+
+  Stacked, it pushes the form below the fold on a phone, so the first thing a visitor sees on the
+  screen whose only job is to let them in is a decorative panel.
+*/
+@media (max-width: 940px) {
+  .auth { grid-template-columns: minmax(0, 1fr); }
+  .auth__visual { display: none; }
+  .auth__form { padding: var(--s8) var(--s7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth__mode, .a-in, .a-edge { animation: none; }
+  .a-in { opacity: 1; }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@strata/metamodel",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Core metamodel: conceptual, logical and physical model objects, references and validation",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  }
+}
