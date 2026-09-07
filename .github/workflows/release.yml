@@ -33,22 +33,118 @@ env:
   IMAGE: ${{ github.repository }}
 
 jobs:
-  image:
-    name: Publish the container image
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+  # Each architecture is built on its own hardware, then the two are stitched into one
+  # multi-arch tag by `merge` below.
+  #
+  # **This used to be one runner emulating arm64 through QEMU, and it was not reliable.** The
+  # arm64 leg ran Node under emulation, and `pnpm install` intermittently died with
+  # `qemu: uncaught target signal 4 (Illegal instruction) - core dumped`, leaving the job hung
+  # until the 60 minute timeout. Same commit, same workflow, publishes one run and hangs the
+  # next: v0.2.0 went out fine and v0.2.1 stalled on the identical Dockerfile.
+  #
+  # GitHub gives public repositories free native `ubuntu-24.04-arm` runners, so the emulation
+  # buys nothing any more. Building each platform where it is native removes the crash entirely
+  # and is several times faster, because arm64 no longer runs a whole toolchain through an
+  # instruction translator.
+  #
+  # arm64 is not optional, whatever it costs: Apple Silicon laptops and the free ARM tiers at
+  # Oracle and AWS Graviton are all arm64, and an amd64-only image fails on them with an error
+  # that reads as a broken download rather than a wrong architecture.
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+
+    strategy:
+      # One architecture failing should not cancel the other: knowing whether the crash is
+      # arm-specific or affects both is most of the diagnosis.
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            slug: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            slug: arm64
 
     steps:
       - name: Check out
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      # Emulation, so one runner can produce an arm64 image as well as amd64.
+      - name: Set up buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Sign in to the registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Labels only here. The human-readable tags are applied once, by `merge`, to the combined
+      # manifest: a per-architecture job that tagged `:latest` would have the two runners racing
+      # to own the same tag, and whichever finished last would win with a single-arch image.
+      - name: Work out the labels
+        id: meta
+        uses: docker/metadata-action@b2391d37b4157fa4aa2e118d643f417910ff3242 # v3
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+
+      # Pushed by digest, with no tag at all.
       #
-      # Not optional. Apple Silicon laptops and the free ARM tiers at Oracle and AWS Graviton are
-      # arm64, and an amd64-only image fails on all of them with an error that reads as a broken
-      # download rather than a wrong architecture.
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      # Each runner uploads an untagged image and reports its digest. `merge` then builds one
+      # manifest list pointing at both, and applies the real tags to that. This is the only way
+      # to get a genuine multi-arch tag out of two separate machines.
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          # Reported by /api/health/detail, so an operator can prove which build is live without
+          # trusting a tag that may have moved.
+          build-args: |
+            STRATA_COMMIT=${{ github.sha }}
+          # Scoped per architecture. A shared cache key would have the two jobs overwriting each
+          # other's layers, and the arm64 job restoring amd64 binaries it cannot execute.
+          cache-from: type=gha,scope=${{ matrix.slug }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.slug }}
+
+      # The digest travels to `merge` as a file named after itself, so the two jobs cannot collide
+      # and `merge` does not need to know which architectures ran.
+      - name: Hand the digest to the merge job
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/digests
+          # Stripped in the shell, not in a `${{ }}` expression: GitHub expressions have no
+          # parameter expansion, so `${{ ... #sha256: }}` is a syntax error rather than a trim.
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload the digest
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: digest-${{ matrix.slug }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Publish the container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build
+
+    steps:
+      - name: Collect the digests
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
 
       - name: Set up buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
@@ -85,26 +181,40 @@ jobs:
           flavor: |
             latest=auto
 
-      - name: Build and push
-        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # Reported by /api/health/detail, so an operator can prove which build is live without
-          # trusting a tag that may have moved.
-          build-args: |
-            STRATA_COMMIT=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # One manifest list per tag, pointing at both per-architecture digests. `docker pull` then
+      # picks the right one for the machine doing the pulling.
+      - name: Create the multi-arch manifest
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}') \
+            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE }}@sha256:%s ' *)
+
+      # Proves the published tag really is multi-arch before anybody pulls it. An amd64-only
+      # image is exactly the failure this whole split exists to prevent, and it is invisible
+      # until an Apple Silicon or Oracle ARM user hits it.
+      - name: Check both architectures are in the manifest
+        run: |
+          set -euo pipefail
+          TAG="$(jq -r '.tags[0]' <<< '${{ steps.meta.outputs.json }}')"
+          docker buildx imagetools inspect "$TAG" --format '{{json .Manifest}}' > /tmp/manifest.json
+
+          for arch in amd64 arm64; do
+            if ! jq -e --arg a "$arch" '.manifests[]?.platform.architecture == $a' /tmp/manifest.json >/dev/null; then
+              echo "::error::$TAG is missing linux/$arch"
+              jq '.manifests[]?.platform' /tmp/manifest.json
+              exit 1
+            fi
+          done
+          echo "$TAG carries both linux/amd64 and linux/arm64"
 
   chart:
     name: Publish the Helm chart
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: image
+    # `merge`, not `build`: the chart's summary tells the reader to pull a tag, and that tag does
+    # not exist until the manifest list is created.
+    needs: merge
 
     # Tags and manual runs only.
     #
