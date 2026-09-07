@@ -130,9 +130,11 @@ jobs:
           docker buildx imagetools inspect "$TAG" --format '{{json .Manifest}}' > /tmp/manifest.json
 
           for arch in amd64 arm64; do
-            if ! jq -e --arg a "$arch" '.manifests[]?.platform.architecture == $a' /tmp/manifest.json >/dev/null; then
+            if ! jq -e --arg a "$arch" \
+                 'any(.manifests[]?; .platform.architecture == $a and .platform.os == "linux")' \
+                 /tmp/manifest.json >/dev/null; then
               echo "::error::$TAG is missing linux/$arch"
-              jq '.manifests[]?.platform' /tmp/manifest.json
+              jq -c '.manifests[]?.platform' /tmp/manifest.json
               exit 1
             fi
           done
