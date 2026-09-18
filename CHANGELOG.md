@@ -19,6 +19,14 @@ Semantic versioning, and these are the surfaces it covers:
 Generated output is deliberately not covered. Better DDL for the same model is a patch, and
 pinning a version to freeze SQL formatting is not a use we support.
 
+## [1.0.1](https://github.com/rk-chavali/strata/compare/v1.0.0...v1.0.1) (2026-09-18)
+
+
+### Bug fixes
+
+* keep the foreign keys, so an imported model can be joined ([26d6bbe](https://github.com/rk-chavali/strata/commit/26d6bbeced98967c9dd0ce0c1b04f205f2042464))
+* keep the foreign keys, so an imported model can be joined ([789c116](https://github.com/rk-chavali/strata/commit/789c1167a47234bd17f92f9d2ad0710cf3c4b7aa))
+
 ## 1.0.0
 
 First public release.
