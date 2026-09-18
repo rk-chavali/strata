@@ -1,4 +1,4 @@
-import { emptyModel, type SourceColumn, type SourceEntity, type SourceModel } from "./ir.js";
+import { emptyModel, type SourceColumn, type SourceEntity, type SourceModel, type SourceRelationship } from "./ir.js";
 
 /**
  * Read a live BigQuery dataset, via `INFORMATION_SCHEMA`.
@@ -39,17 +39,41 @@ export interface BigQueryColumnRow {
   table_description?: string | null;
 }
 
-/** One row of `INFORMATION_SCHEMA.KEY_COLUMN_USAGE`, for declared primary keys. */
+/** One row of `INFORMATION_SCHEMA.KEY_COLUMN_USAGE`: a constrained column, primary or foreign. */
 export interface BigQueryKeyRow {
   table_name: string;
   column_name: string;
-  /** BigQuery names a primary key constraint `<table>.pk$`. */
+  /** BigQuery names a primary key constraint `<table>.pk$`. Anything else is a foreign key. */
   constraint_name?: string | null;
+  /** What orders a compound key. Without it a two-column key pairs arbitrarily. */
+  ordinal_position?: number | string | null;
+}
+
+/**
+ * One row of `INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE`: what a constraint points at.
+ *
+ * Kept separate from `BigQueryKeyRow` rather than joined in SQL. Joining the two views on
+ * `constraint_name` multiplies a two-column key into four rows, and a reader that believed the
+ * result would report a compound key as each column twice.
+ */
+export interface BigQueryConstraintRow {
+  constraint_name: string;
+  /** The referenced table, for a foreign key. */
+  table_name: string;
+  column_name?: string | null;
 }
 
 export interface BigQueryReadOptions {
   /** Dataset the rows came from, used to name the model when the rows do not say. */
   dataset?: string;
+  /**
+   * What each constraint points at, from `CONSTRAINT_COLUMN_USAGE`.
+   *
+   * In the options bag rather than a fourth positional argument so a caller that has not been
+   * taught to fetch them keeps working: it gets the same model it got before, minus the
+   * relationships, rather than a type error.
+   */
+  constraints?: readonly BigQueryConstraintRow[];
 }
 
 /** BigQuery spells absence several ways depending on how the row arrived. */
@@ -71,11 +95,128 @@ function isNested(dataType: string): boolean {
   return /^(struct|array|record)\s*[<(]/i.test(dataType.trim());
 }
 
+/** BigQuery names a primary key constraint `<table>.pk$`. Everything else is a foreign key. */
+function isPrimaryKeyConstraint(constraint: string | undefined): boolean {
+  return !constraint || /\bpk\$?$/i.test(constraint);
+}
+
+/**
+ * Each table's declared primary key, in the order the columns were declared.
+ *
+ * Ordered rather than a set, because the order is what pairs a compound foreign key with what it
+ * points at. `INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE` records no ordinal position, so the
+ * referenced table's own key is the only thing that says which column matches which.
+ */
+function primaryKeysOf(keys: readonly BigQueryKeyRow[]): Map<string, string[]> {
+  const out = new Map<string, { column: string; at: number }[]>();
+
+  for (const row of keys) {
+    const table = text(row.table_name);
+    const column = text(row.column_name);
+    if (!table || !column) continue;
+
+    // Treating a foreign key or a uniqueness constraint as the primary key would be wrong in a
+    // way that silently changes the grain.
+    if (!isPrimaryKeyConstraint(text(row.constraint_name))) continue;
+
+    const bucket = out.get(table.toLowerCase()) ?? [];
+    if (!bucket.some((entry) => entry.column === column.toLowerCase())) {
+      bucket.push({ column: column.toLowerCase(), at: ordinal(row.ordinal_position) });
+    }
+    out.set(table.toLowerCase(), bucket);
+  }
+
+  return new Map(
+    [...out].map(([table, entries]) => [
+      table,
+      entries.sort((a, b) => a.at - b.at).map((entry) => entry.column),
+    ]),
+  );
+}
+
+/**
+ * Declared foreign keys, as relationships.
+ *
+ * This is the half the importer used to throw away, and the cost of that was not obvious. A model
+ * imported without it has primary keys and no joins, which looks complete: every table is there,
+ * every column is there, and the diagram is a field of islands nobody reads as an error. What it
+ * costs downstream is the whole point of the thing. truegrain derives grain from the primary key
+ * and derives joins from the relationships, so a model with no relationships cannot be told that
+ * joining `order_lines` repeats every `orders` row, and a sum over it is silently inflated.
+ *
+ * The pairing is the part to get right. `KEY_COLUMN_USAGE` orders the referencing columns;
+ * `CONSTRAINT_COLUMN_USAGE` names the referenced table but records no ordinal, so its rows cannot
+ * be zipped against the first list. BigQuery requires a foreign key to reference the parent's
+ * primary key, so that key, in its own declared order, is the pairing. When the two do not agree
+ * the relationship is reported and left out: a join with its columns crossed runs, returns rows,
+ * and returns the wrong ones, which is worse than no join at all.
+ */
+function foreignKeysOf(
+  keys: readonly BigQueryKeyRow[],
+  constraints: readonly BigQueryConstraintRow[],
+  primaryKeys: Map<string, string[]>,
+): { relationships: SourceRelationship[]; unpaired: string[] } {
+  const referencedTable = new Map<string, string>();
+  for (const row of constraints) {
+    const constraint = text(row.constraint_name);
+    const table = text(row.table_name);
+    if (constraint && table && !referencedTable.has(constraint)) referencedTable.set(constraint, table);
+  }
+
+  const byConstraint = new Map<string, { table: string; column: string; at: number }[]>();
+  for (const row of keys) {
+    const constraint = text(row.constraint_name);
+    const table = text(row.table_name);
+    const column = text(row.column_name);
+    if (!constraint || !table || !column || isPrimaryKeyConstraint(constraint)) continue;
+
+    const bucket = byConstraint.get(constraint) ?? [];
+    bucket.push({ table, column, at: ordinal(row.ordinal_position) });
+    byConstraint.set(constraint, bucket);
+  }
+
+  const relationships: SourceRelationship[] = [];
+  const unpaired: string[] = [];
+
+  for (const [constraint, rows] of [...byConstraint].sort(([a], [b]) => a.localeCompare(b))) {
+    const parent = referencedTable.get(constraint);
+    if (!parent) continue;
+
+    const ordered = [...rows].sort((a, b) => a.at - b.at);
+    const child = ordered[0]!.table;
+    const childColumns = ordered.map((row) => row.column);
+    const parentColumns = primaryKeys.get(parent.toLowerCase()) ?? [];
+
+    if (parentColumns.length !== childColumns.length) {
+      unpaired.push(constraint);
+      continue;
+    }
+
+    const childKey = primaryKeys.get(child.toLowerCase()) ?? [];
+    relationships.push({
+      name: constraint.includes(".") ? constraint.slice(constraint.indexOf(".") + 1) : constraint,
+      parent,
+      child,
+      // The child holds the foreign key, so the child is the many side.
+      cardinality: "many-to-one",
+      // Identifying when the foreign key is part of the child's own key, which is what makes
+      // `order_lines` a child of `orders` rather than merely a table pointing at it.
+      identifying:
+        childKey.length > 0 && childColumns.every((column) => childKey.includes(column.toLowerCase())),
+      parentColumns,
+      childColumns,
+    });
+  }
+
+  return { relationships, unpaired };
+}
+
 export function readBigQuery(
   columns: readonly BigQueryColumnRow[],
   keys: readonly BigQueryKeyRow[] = [],
   options: BigQueryReadOptions = {},
 ): SourceModel {
+  const constraints = options.constraints ?? [];
   const model = emptyModel("bigquery");
   // A warehouse read back is a physical model by definition: these are real tables with real
   // warehouse types, and classifying them as logical would discard the types on the way in.
@@ -90,22 +231,7 @@ export function readBigQuery(
     this tool turns into an assertion. Dropping it on import would lose the one piece of
     information the warehouse cannot enforce for itself.
   */
-  const primaryKeys = new Map<string, Set<string>>();
-  for (const row of keys) {
-    const table = text(row.table_name);
-    const column = text(row.column_name);
-    if (!table || !column) continue;
-
-    // BigQuery names the primary key constraint `<table>.pk$`. Anything else is a foreign key or
-    // a uniqueness constraint, and treating those as the primary key would be wrong in a way that
-    // silently changes the grain.
-    const constraint = text(row.constraint_name);
-    if (constraint && !/\bpk\$?$/i.test(constraint)) continue;
-
-    const bucket = primaryKeys.get(table.toLowerCase());
-    if (bucket) bucket.add(column.toLowerCase());
-    else primaryKeys.set(table.toLowerCase(), new Set([column.toLowerCase()]));
-  }
+  const primaryKeys = primaryKeysOf(keys);
 
   const byTable = new Map<string, { entity: SourceEntity; rows: BigQueryColumnRow[] }>();
   let skipped = 0;
@@ -169,7 +295,7 @@ export function readBigQuery(
       const nullable = text(row.is_nullable);
       if (nullable) column.required = /^no$/i.test(nullable);
 
-      if (pk?.has(name.toLowerCase())) column.isPrimaryKey = true;
+      if (pk?.includes(name.toLowerCase())) column.isPrimaryKey = true;
 
       const description = text(row.description);
       if (description) column.description = description;
@@ -180,6 +306,39 @@ export function readBigQuery(
     }
 
     model.entities.push(entity);
+  }
+
+  const known = new Set(byTable.keys());
+  const { relationships, unpaired } = foreignKeysOf(keys, constraints, primaryKeys);
+  for (const relationship of relationships) {
+    // A key pointing outside what was imported has nothing to attach to, and a relationship
+    // naming an entity that is not here fails validation with a message about the wrong thing.
+    if (!known.has(relationship.parent.toLowerCase()) || !known.has(relationship.child.toLowerCase())) {
+      continue;
+    }
+    model.relationships.push(relationship);
+  }
+
+  if (unpaired.length > 0) {
+    model.diagnostics.push({
+      severity: "warning",
+      code: "import/unpairableForeignKey",
+      message:
+        `${unpaired.join(", ")} could not be paired with the referenced table's primary key, so ` +
+        "the relationship was left out. Draw it by hand: a join with its columns crossed runs " +
+        "and returns the wrong rows.",
+    });
+  }
+
+  if (model.relationships.length === 0 && model.entities.length > 1) {
+    model.diagnostics.push({
+      severity: "warning",
+      code: "import/noRelationships",
+      message:
+        "no foreign keys are declared in this dataset, so nothing can be joined. Draw the " +
+        "relationships before generating, or a downstream engine cannot tell that a join " +
+        "repeats rows and inflates a sum.",
+    });
   }
 
   if (skipped > 0) {
@@ -251,9 +410,25 @@ export function columnsQuery(dataset: string): string {
 /** Declared primary keys. Separate because not every project has the constraint views. */
 export function keysQuery(dataset: string): string {
   return `
-    SELECT table_name, column_name, constraint_name
+    SELECT table_name, column_name, constraint_name, ordinal_position
     FROM \`${dataset}\`.INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-    ORDER BY table_name, ordinal_position
+    ORDER BY constraint_name, ordinal_position
+  `.trim();
+}
+
+/**
+ * What each constraint points at.
+ *
+ * A second query rather than a join onto `keysQuery`. `CONSTRAINT_COLUMN_USAGE` has one row per
+ * referenced column and no ordinal position, so joining the two views on `constraint_name` turns
+ * a two-column key into four rows: the referencing columns are each repeated once per referenced
+ * column. The reader pairs them instead, using the referenced table's own key order.
+ */
+export function constraintsQuery(dataset: string): string {
+  return `
+    SELECT constraint_name, table_name, column_name
+    FROM \`${dataset}\`.INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE
+    ORDER BY constraint_name
   `.trim();
 }
 

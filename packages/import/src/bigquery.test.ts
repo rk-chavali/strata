@@ -6,10 +6,12 @@ import { mapToObjects } from "./index.js";
  * The live BigQuery reader.
  *
  * Rows rather than a fixture server, because the reader takes rows: the network belongs to the
- * caller, so everything worth testing here is reachable without one. What the tests cannot cover
- * is whether `INFORMATION_SCHEMA` really returns these shapes, and the honest answer is the same
- * one the erwin reader gives about erwin: the projection is written against Google's documented
- * columns and has not been run against a real warehouse.
+ * caller, so everything worth testing here is reachable without one.
+ *
+ * The shapes were written against Google's documented columns and have since been checked
+ * against a real dataset: the three queries were run against a live BigQuery project and their
+ * rows fed through this reader, which produced four tables, the compound key on `order_lines`,
+ * and all three declared relationships with `lines_order` correctly identifying.
  */
 
 function column(over: Partial<BigQueryColumnRow> = {}): BigQueryColumnRow {
@@ -175,5 +177,186 @@ describe("assertDatasetId", () => {
     // together: a validated id appears in the query, and a hostile one never gets that far.
     expect(columnsQuery(assertDatasetId("analytics"))).toContain("`analytics`.INFORMATION_SCHEMA.COLUMNS");
     expect(() => columnsQuery(assertDatasetId("analytics`; --"))).toThrow();
+  });
+});
+
+/**
+ * Declared foreign keys, which the reader used to throw away.
+ *
+ * It read `KEY_COLUMN_USAGE`, kept the `pk$` constraints and skipped everything else, so an
+ * imported model had primary keys and no relationships. That looks complete: every table is
+ * there, every column is there, and a diagram of islands does not read as an error. The cost is
+ * downstream, where joins are derived from relationships, so a model without them cannot be told
+ * that joining a line-item table repeats its parent's rows and inflates a sum over them.
+ *
+ * The row shapes here are the ones a real BigQuery dataset returns, checked against one.
+ */
+describe("foreign keys", () => {
+  const orderColumns = [
+    column({ table_name: "orders", column_name: "order_id", ordinal_position: 1 }),
+    column({ table_name: "orders", column_name: "total", data_type: "NUMERIC", ordinal_position: 2 }),
+    column({ table_name: "order_lines", column_name: "order_id", ordinal_position: 1 }),
+    column({ table_name: "order_lines", column_name: "line_number", data_type: "INT64", ordinal_position: 2 }),
+  ];
+
+  const orderKeys = [
+    { table_name: "orders", column_name: "order_id", constraint_name: "orders.pk$", ordinal_position: 1 },
+    { table_name: "order_lines", column_name: "order_id", constraint_name: "order_lines.pk$", ordinal_position: 1 },
+    { table_name: "order_lines", column_name: "line_number", constraint_name: "order_lines.pk$", ordinal_position: 2 },
+    { table_name: "order_lines", column_name: "order_id", constraint_name: "order_lines.lines_order", ordinal_position: 1 },
+  ];
+
+  const orderConstraints = [
+    { constraint_name: "order_lines.lines_order", table_name: "orders", column_name: "order_id" },
+  ];
+
+  it("turns a declared foreign key into a relationship", () => {
+    const model = readBigQuery(orderColumns, orderKeys, { dataset: "main", constraints: orderConstraints });
+
+    expect(model.relationships).toHaveLength(1);
+    const [relationship] = model.relationships;
+    // The child holds the foreign key and is therefore the many side. Inverting this inverts
+    // every join drawn from it.
+    expect(relationship?.child).toBe("order_lines");
+    expect(relationship?.parent).toBe("orders");
+    expect(relationship?.childColumns).toEqual(["order_id"]);
+    expect(relationship?.parentColumns).toEqual(["order_id"]);
+    expect(relationship?.cardinality).toBe("many-to-one");
+  });
+
+  it("names it without the table prefix BigQuery puts on a constraint", () => {
+    const model = readBigQuery(orderColumns, orderKeys, { dataset: "main", constraints: orderConstraints });
+
+    expect(model.relationships[0]?.name).toBe("lines_order");
+  });
+
+  it("marks it identifying when the foreign key is part of the child's own key", () => {
+    // order_lines is keyed on (order_id, line_number), so it cannot exist without an order.
+    const model = readBigQuery(orderColumns, orderKeys, { dataset: "main", constraints: orderConstraints });
+
+    expect(model.relationships[0]?.identifying).toBe(true);
+  });
+
+  it("does not mark it identifying when the foreign key is merely a reference", () => {
+    const columns = [
+      column({ table_name: "orders", column_name: "order_id", ordinal_position: 1 }),
+      column({ table_name: "campaigns", column_name: "campaign_id", ordinal_position: 1 }),
+      column({ table_name: "campaigns", column_name: "order_id", ordinal_position: 2 }),
+    ];
+    const keys = [
+      { table_name: "orders", column_name: "order_id", constraint_name: "orders.pk$", ordinal_position: 1 },
+      { table_name: "campaigns", column_name: "campaign_id", constraint_name: "campaigns.pk$", ordinal_position: 1 },
+      { table_name: "campaigns", column_name: "order_id", constraint_name: "campaigns.campaigns_order", ordinal_position: 1 },
+    ];
+    const constraints = [
+      { constraint_name: "campaigns.campaigns_order", table_name: "orders", column_name: "order_id" },
+    ];
+
+    const model = readBigQuery(columns, keys, { dataset: "main", constraints });
+
+    expect(model.relationships[0]?.identifying).toBe(false);
+  });
+
+  it("still reads the primary key, in its declared order", () => {
+    // A compound key read out of order pairs the wrong columns everywhere it is used.
+    const model = readBigQuery(orderColumns, orderKeys, { dataset: "main", constraints: orderConstraints });
+
+    const lines = model.entities.find((e) => e.name === "order_lines");
+    expect(lines?.columns.filter((c) => c.isPrimaryKey).map((c) => c.name)).toEqual([
+      "order_id",
+      "line_number",
+    ]);
+  });
+
+  it("does not read a primary key constraint as a relationship", () => {
+    // CONSTRAINT_COLUMN_USAGE carries rows for primary keys too. Treating one as a foreign key
+    // would give every table a relationship to itself.
+    const constraints = [
+      ...orderConstraints,
+      { constraint_name: "orders.pk$", table_name: "orders", column_name: "order_id" },
+      { constraint_name: "order_lines.pk$", table_name: "order_lines", column_name: "order_id" },
+    ];
+
+    const model = readBigQuery(orderColumns, orderKeys, { dataset: "main", constraints });
+
+    expect(model.relationships).toHaveLength(1);
+    expect(model.relationships[0]?.name).toBe("lines_order");
+  });
+
+  it("pairs a compound foreign key by the parent's key order, not by row order", () => {
+    /*
+      CONSTRAINT_COLUMN_USAGE records no ordinal position, so its rows cannot be zipped against
+      the referencing columns. Here they arrive reversed, which a naive pairing would take as
+      truth and produce a join matching line_number to order_id.
+    */
+    const columns = [
+      column({ table_name: "order_lines", column_name: "order_id", ordinal_position: 1 }),
+      column({ table_name: "order_lines", column_name: "line_number", ordinal_position: 2 }),
+      column({ table_name: "shipments", column_name: "order_id", ordinal_position: 1 }),
+      column({ table_name: "shipments", column_name: "line_number", ordinal_position: 2 }),
+    ];
+    const keys = [
+      { table_name: "order_lines", column_name: "order_id", constraint_name: "order_lines.pk$", ordinal_position: 1 },
+      { table_name: "order_lines", column_name: "line_number", constraint_name: "order_lines.pk$", ordinal_position: 2 },
+      { table_name: "shipments", column_name: "order_id", constraint_name: "shipments.ships_line", ordinal_position: 1 },
+      { table_name: "shipments", column_name: "line_number", constraint_name: "shipments.ships_line", ordinal_position: 2 },
+    ];
+    const constraints = [
+      { constraint_name: "shipments.ships_line", table_name: "order_lines", column_name: "line_number" },
+      { constraint_name: "shipments.ships_line", table_name: "order_lines", column_name: "order_id" },
+    ];
+
+    const model = readBigQuery(columns, keys, { dataset: "main", constraints });
+
+    expect(model.relationships[0]?.childColumns).toEqual(["order_id", "line_number"]);
+    expect(model.relationships[0]?.parentColumns).toEqual(["order_id", "line_number"]);
+  });
+
+  it("leaves out a foreign key it cannot pair, and says so", () => {
+    // The parent has no declared key, so nothing orders the referenced side. A join with its
+    // columns crossed runs and returns the wrong rows, which is worse than no join.
+    const columns = [
+      column({ table_name: "order_lines", column_name: "order_id", ordinal_position: 1 }),
+      column({ table_name: "shipments", column_name: "order_id", ordinal_position: 1 }),
+      column({ table_name: "shipments", column_name: "line_number", ordinal_position: 2 }),
+    ];
+    const keys = [
+      { table_name: "shipments", column_name: "order_id", constraint_name: "shipments.ships_line", ordinal_position: 1 },
+      { table_name: "shipments", column_name: "line_number", constraint_name: "shipments.ships_line", ordinal_position: 2 },
+    ];
+    const constraints = [
+      { constraint_name: "shipments.ships_line", table_name: "order_lines", column_name: "order_id" },
+    ];
+
+    const model = readBigQuery(columns, keys, { dataset: "main", constraints });
+
+    expect(model.relationships).toHaveLength(0);
+    expect(model.diagnostics.map((d) => d.code)).toContain("import/unpairableForeignKey");
+  });
+
+  it("says when a dataset declares no foreign keys at all", () => {
+    // Silence here is what made the old behaviour invisible: a model with no joins looked fine.
+    const model = readBigQuery(orderColumns, orderKeys, { dataset: "main", constraints: [] });
+
+    expect(model.relationships).toHaveLength(0);
+    expect(model.diagnostics.map((d) => d.code)).toContain("import/noRelationships");
+  });
+
+  it("leaves out a key pointing at a table that was not imported", () => {
+    const constraints = [
+      { constraint_name: "order_lines.lines_order", table_name: "somewhere_else", column_name: "id" },
+    ];
+
+    const model = readBigQuery(orderColumns, orderKeys, { dataset: "main", constraints });
+
+    expect(model.relationships).toHaveLength(0);
+  });
+
+  it("carries the relationships through to the mapper", () => {
+    // The reader's output is only worth anything if the rest of the pipeline receives it.
+    const model = readBigQuery(orderColumns, orderKeys, { dataset: "main", constraints: orderConstraints });
+    const mapped = mapToObjects(model, { model: "warehouse", tier: "physical", dataset: "main" });
+
+    expect(JSON.stringify(mapped)).toContain("lines_order");
   });
 });

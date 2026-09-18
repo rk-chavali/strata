@@ -18,9 +18,11 @@ export {
   readBigQuery,
   columnsQuery,
   keysQuery,
+  constraintsQuery,
   assertDatasetId,
   type BigQueryColumnRow,
   type BigQueryKeyRow,
+  type BigQueryConstraintRow,
 } from "./bigquery.js";
 
 export type SourceFormat = "erwin-xml" | "ddl" | "tabular";
