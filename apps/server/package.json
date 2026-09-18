@@ -1,6 +1,6 @@
 {
   "name": "@strata/server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "private": true,
   "description": "Read/write API over a model repo, backing the web UI",
