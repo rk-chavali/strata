@@ -27,7 +27,22 @@ jobs:
       # the MCP transport here are hand-written: this is a regex, and an action would be a
       # supply-chain dependency with write access to nothing but still one more thing to pin,
       # audit and update.
+      #
+      # Skipped on release-please's own pull request, which this check could never pass. Its
+      # title is `chore(main): release 1.0.1`, and `main` is release-please's component scope
+      # rather than one of the workspaces below, so the regex rejected it and every release
+      # blocked. Checking generated output against a convention that exists so release-please
+      # can parse it is circular anyway: the tool wrote the title it will later read.
+      #
+      # Keyed on the branch prefix rather than the actor, because the actor is whoever owns
+      # RELEASE_PLEASE_TOKEN and stops being github-actions[bot] the moment that secret is set.
+      #
+      # The `if` is on the step and must stay there. "Conventional Commits title" is a required
+      # status check, so a job-level `if` would skip the job, the check would never report, and
+      # the release pull request would sit on "waiting for status" forever: blocked by its own
+      # exemption. Skipping the step leaves the job to run and pass.
       - name: Check the title
+        if: ${{ !startsWith(github.head_ref, 'release-please--') }}
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
