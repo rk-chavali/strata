@@ -19,6 +19,13 @@ Semantic versioning, and these are the surfaces it covers:
 Generated output is deliberately not covered. Better DDL for the same model is a patch, and
 pinning a version to freeze SQL formatting is not a use we support.
 
+## [1.0.2](https://github.com/rk-chavali/strata/compare/v1.0.1...v1.0.2) (2026-09-19)
+
+
+### Bug fixes
+
+* **server:** pass BigQuery constraints as the argument that reads them ([a190023](https://github.com/rk-chavali/strata/commit/a190023ff47851c6f8368d4d69d702a378148401))
+
 ## [1.0.1](https://github.com/rk-chavali/strata/compare/v1.0.0...v1.0.1) (2026-09-18)
 
 
