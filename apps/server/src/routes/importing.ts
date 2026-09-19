@@ -293,10 +293,8 @@ async function readDataset(options: {
   const source = readBigQuery(
     columns.rows as unknown as BigQueryColumnRow[],
     keys as unknown as BigQueryKeyRow[],
-    {
-      dataset: options.dataset,
-      constraints: constraints as unknown as BigQueryConstraintRow[],
-    },
+    constraints as unknown as BigQueryConstraintRow[],
+    { dataset: options.dataset },
   );
 
   if (columns.truncated) {
