@@ -6,8 +6,8 @@ type: application
 # The chart version moves when the chart changes; the app version tracks the image.
 # Keeping them separate means a values-only fix does not pretend to be a new application
 # release, which is what an operator reads these two fields to tell apart.
-version: 1.0.0
-appVersion: "1.0.0"
+version: 1.0.1
+appVersion: "1.0.1"
 
 keywords:
   - data-modelling

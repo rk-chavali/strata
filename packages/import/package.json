@@ -1,6 +1,6 @@
 {
   "name": "@strata/import",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Import erwin, DDL and tabular models into the metamodel",
   "main": "./dist/index.js",
