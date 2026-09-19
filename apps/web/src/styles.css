@@ -1,0 +1,40 @@
+/*
+ * Stylesheet entry point.
+ *
+ * This was a single 1787-line file in which tokens, the application shell, the canvas, the
+ * form controls and six one-off panels all shared a namespace. Finding the rule that
+ * governed a given pixel meant scrolling, and the same visual decision was expressed in
+ * four places because nobody could tell it was already made.
+ *
+ * **Import order is load-bearing**, so it is stated rather than left to chance:
+ *
+ *   1. `tokens`, variables only. Must be first; everything below reads them.
+ *   2. `legacy`, transitional rules for components not yet ported. Before `ui` so the
+ *                  design system wins on any class name they share, which is how an
+ *                  unported dialog picks up the new look without being rewritten.
+ *   3. `base`, reset, document defaults, the few global utilities.
+ *   4. `ui`, the primitives. The authority on buttons, inputs, dialogs, tables.
+ *   5. `shell`, top bar, sidebar, page scaffold, status bar, command palette.
+ *   6. `canvas`, the diagram surface, its nodes, edges, shapes and floating toolbars.
+ *   7. `studio`, the panels docked around the canvas. After `canvas`, because the
+ *                  studio grid owns the canvas's outer box and has to win where they meet.
+ *   8. `repo`, the repository view, the diagram's other half.
+ *   9. `setup`, the first-run flow, which replaces the shell rather than sitting in it.
+ *  10. `auth` and `cloud`, the two ways in. Both replace the shell rather than sitting
+ *                 in it. Last, because it is the only screen that deliberately looks more
+ *                 like the marketing site than like the application.
+ *
+ * Anything genuinely component-specific belongs in the component, not here.
+ */
+
+@import "./styles/tokens.css";
+@import "./styles/legacy.css";
+@import "./styles/base.css";
+@import "./styles/ui.css";
+@import "./styles/shell.css";
+@import "./styles/canvas.css";
+@import "./styles/studio.css";
+@import "./styles/repo.css";
+@import "./styles/setup.css";
+@import "./styles/cloud.css";
+@import "./styles/auth.css";

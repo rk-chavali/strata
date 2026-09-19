@@ -1,0 +1,48 @@
+id: tbl_fct_order
+kind: table
+name: fct_order
+model: shop_warehouse
+objectType: table
+description: One row per order. Partitioned on the order date because every query filters on it.
+layer: mart
+grain: One row per order.
+columns:
+  - id: col_fo_order_id
+    name: order_id
+    dataType: STRING
+    mode: REQUIRED
+  - id: col_fo_customer_id
+    name: customer_id
+    dataType: STRING
+    mode: REQUIRED
+    description: Foreign key to dim_customer.
+  - id: col_fo_placed_at
+    name: placed_at
+    dataType: TIMESTAMP
+    mode: REQUIRED
+  - id: col_fo_order_date
+    name: order_date
+    dataType: DATE
+    mode: REQUIRED
+    description: The partition column. Derived from placed_at in the warehouse timezone.
+  - id: col_fo_order_total
+    name: order_total
+    dataType: NUMERIC
+    mode: REQUIRED
+    description: NUMERIC rather than FLOAT64, so money adds up exactly.
+  - id: col_fo_order_status
+    name: order_status
+    dataType: STRING
+    mode: REQUIRED
+primaryKey:
+  - order_id
+partitioning:
+  type: time
+  field: order_date
+  granularity: DAY
+  # The description above says every query filters on order_date, so say it to BigQuery
+  # too. This rejects an unfiltered query instead of quietly scanning the whole table.
+  requireFilter: true
+clustering:
+  - customer_id
+entityRef: shop_logical:Order

@@ -1,0 +1,87 @@
+name: Bug report
+description: Something behaves differently from what the docs or the code say it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not report security issues here. See [SECURITY.md](../blob/main/SECURITY.md).
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues and did not find this.
+          required: true
+        - label: I can reproduce this on `main`, or on a released image tag I have named below.
+          required: true
+        - label: I have included the smallest reproduction I could get to.
+          required: true
+
+  # Which part of the monorepo. Bugs land in one of eight workspaces and the fix rarely
+  # crosses them, so asking here is cheaper than reading the stack trace to find out.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - server (apps/server)
+        - web (apps/web)
+        - cli (packages/cli)
+        - ddl (packages/ddl)
+        - import (packages/import)
+        - metamodel (packages/metamodel)
+        - query (packages/query)
+        - storage (packages/storage)
+        - deployment (Docker, Helm, hosting)
+        - docs
+        - not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `strata --version`, or the image tag, or the commit sha.
+      placeholder: "1.0.0 / ghcr.io/rk-chavali/strata:edge / a9bc795"
+    validations:
+      required: true
+
+  # How it is run changes which code paths are live: the single-replica git working tree
+  # constraint, the auth store and the workspace watcher all behave differently.
+  - type: dropdown
+    id: how
+    attributes:
+      label: How are you running it?
+      options:
+        - pnpm dev (from a clone)
+        - Docker / docker compose
+        - Kubernetes / Helm
+        - CLI only
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Exact steps, or a failing test. A model repo that triggers it is ideal.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Server output or browser console. Please redact tokens and connection strings.
+      render: shell

@@ -1,0 +1,51 @@
+{
+  // Publishes the `docs/` folder to Cloudflare as a static site.
+  //
+  // **Why this file exists.** Cloudflare has folded Pages into Workers, so connecting a repository
+  // in the dashboard now creates a Worker rather than a Pages project. A Worker needs to be told
+  // what to serve, and this is where that is written down.
+  //
+  // **Why it matters that this never sleeps.** The demo container on Render sleeps after fifteen
+  // minutes of no traffic, and while it is asleep it cannot serve anything, so a loading screen
+  // inside the app is no help: the app is the thing that is not running. `docs/try.html` lives
+  // here instead, wakes the demo by asking for its health, and shows a model assembling itself
+  // while it comes up. That only works because this side is always warm.
+
+  "name": "strata-docs",
+  "compatibility_date": "2026-08-30",
+
+  // No `main` entry on purpose. Without one, Cloudflare serves the assets and runs no code, which
+  // is exactly right for hand written HTML. Adding a Worker script would also mean `_headers`
+  // stopped applying to anything that script generated.
+  "assets": {
+    "directory": "./docs",
+
+    // `/` serves index.html, `/quickstart` serves quickstart.html, and `/quickstart.html` 307s
+    // to the extensionless form.
+    //
+    // That last redirect is deliberate, and it was worth getting wrong twice to land on. Setting
+    // this to `"none"` removes the redirect but serves exact paths only, so `/` stops resolving
+    // to index.html and the front door 404s. Writing the internal links extensionless avoids the
+    // redirect too, but then the docs no longer open from a local checkout over `file://`, which
+    // is a property worth more than one round trip: somebody reading these off a clone with no
+    // network is exactly who needs them.
+    //
+    // So the links keep their `.html`, and each internal click costs one cached 307.
+    "html_handling": "drop-trailing-slash",
+
+    // A missing page returns 404 rather than falling back to index.html. This is a documentation
+    // site, not a single page app: a typo in a URL should say the page is not there, not silently
+    // hand back the home page and let somebody think they are reading what they asked for.
+    "not_found_handling": "404-page"
+  },
+
+  // `docs/_headers` sets the content security policy for this site. It is parsed as configuration
+  // rather than served, and its `connect-src` has to name the demo origin or the browser blocks
+  // `try.html` from polling it. If the Render URL ever changes, change it there too.
+
+  "observability": {
+    // Cheap, and the only way to find out that the waking page is failing for real visitors
+    // rather than just for you.
+    "enabled": true
+  }
+}

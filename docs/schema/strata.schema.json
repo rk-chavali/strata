@@ -1,0 +1,2331 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://strata-docs.chavali-r.workers.dev/schema/strata.schema.json",
+  "title": "Strata model object",
+  "description": "One object in a Strata model repository: a model, concept, entity, table, relationship, mapping, domain, glossary term, naming standard, subject area or diagram. Generated from the zod schemas in @strata/metamodel; do not edit by hand.",
+  "$ref": "#/definitions/StrataObject",
+  "definitions": {
+    "StrataObject": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": {},
+              "default": {}
+            },
+            "ownership": {
+              "type": "object",
+              "properties": {
+                "owner": {
+                  "type": "string"
+                },
+                "steward": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "lifecycle": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "in_review",
+                "approved",
+                "deprecated",
+                "retired"
+              ]
+            },
+            "previousNames": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "kind": {
+              "type": "string",
+              "const": "model"
+            },
+            "tier": {
+              "type": "string",
+              "enum": [
+                "conceptual",
+                "logical",
+                "physical"
+              ]
+            },
+            "namespace": {
+              "type": "string"
+            },
+            "derivedFrom": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "namingStandard": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "target": {
+              "type": "object",
+              "properties": {
+                "platform": {
+                  "type": "string",
+                  "const": "bigquery",
+                  "default": "bigquery"
+                },
+                "project": {
+                  "type": "string"
+                },
+                "dataset": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "environments": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "project": {
+                        "type": "string"
+                      },
+                      "dataset": {
+                        "type": "string"
+                      },
+                      "datasetSuffix": {
+                        "type": "string"
+                      },
+                      "location": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  "default": {}
+                }
+              },
+              "additionalProperties": true
+            },
+            "layers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "dataformConnection": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind",
+            "tier"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+            },
+            "name": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/name"
+            },
+            "model": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "displayName": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/displayName"
+            },
+            "description": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/description"
+            },
+            "tags": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tags"
+            },
+            "properties": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/properties"
+            },
+            "ownership": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/ownership"
+            },
+            "lifecycle": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/lifecycle"
+            },
+            "previousNames": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/previousNames"
+            },
+            "kind": {
+              "type": "string",
+              "const": "subjectArea"
+            },
+            "parent": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "color": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+            },
+            "name": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/name"
+            },
+            "model": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "displayName": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/displayName"
+            },
+            "description": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/description"
+            },
+            "tags": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tags"
+            },
+            "properties": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/properties"
+            },
+            "ownership": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/ownership"
+            },
+            "lifecycle": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/lifecycle"
+            },
+            "previousNames": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/previousNames"
+            },
+            "kind": {
+              "type": "string",
+              "const": "glossaryTerm"
+            },
+            "definition": {
+              "type": "string",
+              "minLength": 1
+            },
+            "abbreviation": {
+              "type": "string"
+            },
+            "synonyms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "deprecatedSynonyms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "relatedTerms": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+              },
+              "default": []
+            },
+            "subjectArea": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "approvedBy": {
+              "type": "string"
+            },
+            "approvedAt": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind",
+            "definition"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+            },
+            "name": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/name"
+            },
+            "model": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "displayName": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/displayName"
+            },
+            "description": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/description"
+            },
+            "tags": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tags"
+            },
+            "properties": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/properties"
+            },
+            "ownership": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/ownership"
+            },
+            "lifecycle": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/lifecycle"
+            },
+            "previousNames": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/previousNames"
+            },
+            "kind": {
+              "type": "string",
+              "const": "domain"
+            },
+            "logicalType": {
+              "type": "string",
+              "enum": [
+                "string",
+                "text",
+                "integer",
+                "bigint",
+                "decimal",
+                "float",
+                "boolean",
+                "date",
+                "time",
+                "timestamp",
+                "datetime",
+                "interval",
+                "json",
+                "binary",
+                "geography",
+                "uuid",
+                "enum",
+                "struct",
+                "array",
+                "unknown"
+              ]
+            },
+            "physicalType": {
+              "type": "string"
+            },
+            "length": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "precision": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "scale": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nullable": {
+              "type": "boolean",
+              "default": true
+            },
+            "defaultValue": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            },
+            "allowedValues": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "number"
+                ]
+              },
+              "default": []
+            },
+            "pattern": {
+              "type": "string"
+            },
+            "minValue": {
+              "type": [
+                "string",
+                "number"
+              ]
+            },
+            "maxValue": {
+              "type": [
+                "string",
+                "number"
+              ]
+            },
+            "unit": {
+              "type": "string"
+            },
+            "classification": {
+              "type": "object",
+              "properties": {
+                "sensitivity": {
+                  "type": "string",
+                  "enum": [
+                    "public",
+                    "internal",
+                    "confidential",
+                    "restricted"
+                  ]
+                },
+                "categories": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "pii",
+                      "phi",
+                      "pci",
+                      "financial",
+                      "credential",
+                      "biometric",
+                      "location",
+                      "contact",
+                      "demographic"
+                    ]
+                  },
+                  "default": []
+                },
+                "policyTag": {
+                  "type": "string"
+                },
+                "policyTagName": {
+                  "type": "string"
+                },
+                "retentionDays": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "residency": {
+                  "type": "string"
+                },
+                "maskingRule": {
+                  "type": "string"
+                },
+                "subjectIdentifier": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true
+            },
+            "namePrefix": {
+              "type": "string"
+            },
+            "nameSuffix": {
+              "type": "string"
+            },
+            "extends": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind",
+            "logicalType"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+            },
+            "name": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/name"
+            },
+            "model": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "displayName": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/displayName"
+            },
+            "description": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/description"
+            },
+            "tags": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tags"
+            },
+            "properties": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/properties"
+            },
+            "ownership": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/ownership"
+            },
+            "lifecycle": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/lifecycle"
+            },
+            "previousNames": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/previousNames"
+            },
+            "kind": {
+              "type": "string",
+              "const": "namingStandard"
+            },
+            "abbreviations": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {}
+            },
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "appliesTo": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "tiers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "casing": {
+                    "type": "string",
+                    "enum": [
+                      "snake_case",
+                      "SCREAMING_SNAKE",
+                      "camelCase",
+                      "PascalCase",
+                      "Title Case",
+                      "any"
+                    ]
+                  },
+                  "pattern": {
+                    "type": "string"
+                  },
+                  "maxLength": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "requiredPrefix": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "requiredSuffix": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "forbiddenWords": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "severity": {
+                    "type": "string",
+                    "enum": [
+                      "error",
+                      "warning",
+                      "info"
+                    ],
+                    "default": "warning"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "physicalNameTemplate": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+            },
+            "name": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/name"
+            },
+            "model": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "displayName": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/displayName"
+            },
+            "description": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/description"
+            },
+            "tags": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tags"
+            },
+            "properties": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/properties"
+            },
+            "ownership": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/ownership"
+            },
+            "lifecycle": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/lifecycle"
+            },
+            "previousNames": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/previousNames"
+            },
+            "kind": {
+              "type": "string",
+              "const": "concept"
+            },
+            "definition": {
+              "type": "string"
+            },
+            "subjectArea": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "synonyms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "examples": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "glossaryTerms": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+              },
+              "default": []
+            },
+            "businessKey": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+            },
+            "name": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/name"
+            },
+            "model": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "displayName": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/displayName"
+            },
+            "description": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/description"
+            },
+            "tags": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tags"
+            },
+            "properties": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/properties"
+            },
+            "ownership": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/ownership"
+            },
+            "lifecycle": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/lifecycle"
+            },
+            "previousNames": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/previousNames"
+            },
+            "kind": {
+              "type": "string",
+              "const": "entity"
+            },
+            "entityType": {
+              "type": "string",
+              "enum": [
+                "entity",
+                "associative",
+                "weak",
+                "supertype",
+                "subtype"
+              ],
+              "default": "entity"
+            },
+            "subjectArea": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "attributes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "domain": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  },
+                  "logicalType": {
+                    "$ref": "#/definitions/StrataObject/anyOf/3/properties/logicalType"
+                  },
+                  "length": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "precision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "scale": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "required": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "defaultValue": {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "allowedValues": {
+                    "type": "array",
+                    "items": {
+                      "type": [
+                        "string",
+                        "number"
+                      ]
+                    },
+                    "default": []
+                  },
+                  "inherited": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "inheritedFrom": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  },
+                  "derivation": {
+                    "type": "string"
+                  },
+                  "classification": {
+                    "$ref": "#/definitions/StrataObject/anyOf/3/properties/classification"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "properties": {
+                    "type": "object",
+                    "additionalProperties": {},
+                    "default": {}
+                  },
+                  "previousNames": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "conceptRef": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  },
+                  "glossaryTerm": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "primaryKey": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "alternateKeys": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attributes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "attributes"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "supertype": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "subtypeDiscriminator": {
+              "type": "string"
+            },
+            "subtypeValue": {
+              "type": "string"
+            },
+            "subtypeCompleteness": {
+              "type": "string",
+              "enum": [
+                "complete",
+                "incomplete"
+              ]
+            },
+            "conceptRef": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "constraints": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "expression": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "assert": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "name",
+                  "expression"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+            },
+            "name": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/name"
+            },
+            "model": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "displayName": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/displayName"
+            },
+            "description": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/description"
+            },
+            "tags": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tags"
+            },
+            "properties": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/properties"
+            },
+            "ownership": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/ownership"
+            },
+            "lifecycle": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/lifecycle"
+            },
+            "previousNames": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/previousNames"
+            },
+            "kind": {
+              "type": "string",
+              "const": "table"
+            },
+            "project": {
+              "type": "string"
+            },
+            "dataset": {
+              "type": "string"
+            },
+            "objectType": {
+              "type": "string",
+              "enum": [
+                "table",
+                "view",
+                "materializedView",
+                "external",
+                "snapshot"
+              ],
+              "default": "table"
+            },
+            "layer": {
+              "type": "string"
+            },
+            "subjectArea": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "grain": {
+              "type": "string"
+            },
+            "columns": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "dataType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "NULLABLE",
+                      "REQUIRED",
+                      "REPEATED"
+                    ],
+                    "default": "NULLABLE"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/definitions/StrataObject/anyOf/7/properties/columns/items"
+                    }
+                  },
+                  "domain": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  },
+                  "classification": {
+                    "$ref": "#/definitions/StrataObject/anyOf/3/properties/classification"
+                  },
+                  "defaultValueExpression": {
+                    "type": "string"
+                  },
+                  "collation": {
+                    "type": "string"
+                  },
+                  "roundingMode": {
+                    "type": "string"
+                  },
+                  "attributeRef": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "properties": {
+                    "type": "object",
+                    "additionalProperties": {},
+                    "default": {}
+                  },
+                  "previousNames": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "dataType"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "primaryKey": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "uniqueKeys": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "columns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1
+                  },
+                  "assert": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "name",
+                  "columns"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "foreignKeys": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "columns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1
+                  },
+                  "references": {
+                    "type": "object",
+                    "properties": {
+                      "table": {
+                        "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                      },
+                      "columns": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "minItems": 1
+                      }
+                    },
+                    "required": [
+                      "table",
+                      "columns"
+                    ],
+                    "additionalProperties": true
+                  },
+                  "assert": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "columns",
+                  "references"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "partitioning": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "time"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "granularity": {
+                      "type": "string",
+                      "enum": [
+                        "HOUR",
+                        "DAY",
+                        "MONTH",
+                        "YEAR"
+                      ],
+                      "default": "DAY"
+                    },
+                    "expirationDays": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "requireFilter": {
+                      "type": "boolean",
+                      "default": false
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "integerRange"
+                    },
+                    "field": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "start": {
+                      "type": "integer"
+                    },
+                    "end": {
+                      "type": "integer"
+                    },
+                    "interval": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "requireFilter": {
+                      "type": "boolean",
+                      "default": false
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "field",
+                    "start",
+                    "end",
+                    "interval"
+                  ],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "clustering": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "options": {
+              "type": "object",
+              "properties": {
+                "friendlyName": {
+                  "type": "string"
+                },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "default": {}
+                },
+                "expirationDays": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "kmsKeyName": {
+                  "type": "string"
+                },
+                "maxStaleness": {
+                  "type": "string"
+                },
+                "enableRefresh": {
+                  "type": "boolean"
+                },
+                "refreshIntervalMinutes": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "additionalProperties": true,
+              "default": {}
+            },
+            "viewQuery": {
+              "type": "string"
+            },
+            "externalConfig": {
+              "type": "object",
+              "properties": {
+                "sourceFormat": {
+                  "type": "string"
+                },
+                "sourceUris": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "autodetect": {
+                  "type": "boolean"
+                },
+                "hivePartitioningMode": {
+                  "type": "string"
+                },
+                "connectionId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sourceFormat"
+              ],
+              "additionalProperties": true
+            },
+            "dataform": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "table",
+                    "view",
+                    "incremental",
+                    "declaration",
+                    "operations",
+                    "assertion"
+                  ]
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "disabled": {
+                  "type": "boolean"
+                },
+                "protected": {
+                  "type": "boolean"
+                },
+                "uniqueKey": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "dependencies": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  },
+                  "default": []
+                },
+                "preOperations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "postOperations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "path": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true,
+              "default": {}
+            },
+            "entityRef": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+            },
+            "name": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/name"
+            },
+            "model": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "displayName": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/displayName"
+            },
+            "description": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/description"
+            },
+            "tags": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tags"
+            },
+            "properties": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/properties"
+            },
+            "ownership": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/ownership"
+            },
+            "lifecycle": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/lifecycle"
+            },
+            "previousNames": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/previousNames"
+            },
+            "kind": {
+              "type": "string",
+              "const": "relationship"
+            },
+            "tier": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tier"
+            },
+            "parent": {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                },
+                "cardinality": {
+                  "type": "string",
+                  "enum": [
+                    "zero-or-one",
+                    "exactly-one",
+                    "zero-or-more",
+                    "one-or-more"
+                  ]
+                },
+                "verbPhrase": {
+                  "type": "string"
+                },
+                "roleName": {
+                  "type": "string"
+                },
+                "attributes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                }
+              },
+              "required": [
+                "ref",
+                "cardinality"
+              ],
+              "additionalProperties": true
+            },
+            "child": {
+              "$ref": "#/definitions/StrataObject/anyOf/8/properties/parent"
+            },
+            "identifying": {
+              "type": "boolean",
+              "default": false
+            },
+            "associativeEntity": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "onDelete": {
+              "type": "string",
+              "enum": [
+                "noAction",
+                "cascade",
+                "setNull",
+                "setDefault",
+                "restrict"
+              ]
+            },
+            "onUpdate": {
+              "type": "string",
+              "enum": [
+                "noAction",
+                "cascade",
+                "setNull",
+                "setDefault",
+                "restrict"
+              ]
+            },
+            "assert": {
+              "type": "boolean",
+              "default": true
+            },
+            "subjectArea": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "derivedFrom": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "inferredConfidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "inferenceEvidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind",
+            "tier",
+            "parent",
+            "child"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+            },
+            "name": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/name"
+            },
+            "model": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "displayName": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/displayName"
+            },
+            "description": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/description"
+            },
+            "tags": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tags"
+            },
+            "properties": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/properties"
+            },
+            "ownership": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/ownership"
+            },
+            "lifecycle": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/lifecycle"
+            },
+            "previousNames": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/previousNames"
+            },
+            "kind": {
+              "type": "string",
+              "const": "mapping"
+            },
+            "target": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ref": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  },
+                  "alias": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "join": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "inner",
+                          "left",
+                          "right",
+                          "full",
+                          "cross"
+                        ],
+                        "default": "left"
+                      },
+                      "on": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "on"
+                    ],
+                    "additionalProperties": true
+                  },
+                  "filter": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "ref",
+                  "alias"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "loadStrategy": {
+              "type": "string",
+              "enum": [
+                "full",
+                "append",
+                "merge",
+                "scd1",
+                "scd2",
+                "scd3",
+                "incremental",
+                "snapshot",
+                "declaration"
+              ],
+              "default": "full"
+            },
+            "columnMappings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "target": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "expression": {
+                    "type": "string"
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "trackChanges": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "target"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "having": {
+              "type": "string"
+            },
+            "groupBy": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "where": {
+              "type": "string"
+            },
+            "dimensional": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "dimension",
+                    "fact",
+                    "bridge",
+                    "aggregate",
+                    "junk",
+                    "outrigger"
+                  ]
+                },
+                "businessKey": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "surrogateKey": {
+                  "type": "string"
+                },
+                "surrogateKeyStrategy": {
+                  "type": "string",
+                  "enum": [
+                    "hash",
+                    "uuid",
+                    "rowNumber",
+                    "sourceProvided"
+                  ],
+                  "default": "hash"
+                },
+                "validFromColumn": {
+                  "type": "string"
+                },
+                "validToColumn": {
+                  "type": "string"
+                },
+                "currentFlagColumn": {
+                  "type": "string"
+                },
+                "versionColumn": {
+                  "type": "string"
+                },
+                "hashColumn": {
+                  "type": "string"
+                },
+                "watermarkColumn": {
+                  "type": "string"
+                },
+                "snapshotDateColumn": {
+                  "type": "string"
+                },
+                "lookbackDays": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "dimensionLookups": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "column": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "dimension": {
+                        "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                      },
+                      "sourceColumn": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "unknownMemberKey": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      },
+                      "pointInTime": {
+                        "type": "boolean",
+                        "default": false
+                      }
+                    },
+                    "required": [
+                      "column",
+                      "dimension",
+                      "sourceColumn"
+                    ],
+                    "additionalProperties": true
+                  },
+                  "default": []
+                },
+                "conformed": {
+                  "type": "boolean"
+                },
+                "conformedAs": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "customSql": {
+              "type": "string"
+            },
+            "stage": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind",
+            "target"
+          ],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/id"
+            },
+            "name": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/name"
+            },
+            "model": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+            },
+            "displayName": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/displayName"
+            },
+            "description": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/description"
+            },
+            "tags": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/tags"
+            },
+            "properties": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/properties"
+            },
+            "ownership": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/ownership"
+            },
+            "lifecycle": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/lifecycle"
+            },
+            "previousNames": {
+              "$ref": "#/definitions/StrataObject/anyOf/0/properties/previousNames"
+            },
+            "kind": {
+              "type": "string",
+              "const": "diagram"
+            },
+            "notation": {
+              "type": "string",
+              "enum": [
+                "crowsFoot",
+                "idef1x",
+                "uml",
+                "barker"
+              ],
+              "default": "crowsFoot"
+            },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ref": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  },
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "width": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "height": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "collapsed": {
+                    "type": "boolean"
+                  },
+                  "visibleMembers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": []
+                  },
+                  "color": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "ref",
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "edges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ref": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  },
+                  "waypoints": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "default": []
+                  },
+                  "labelOffset": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": true
+                  },
+                  "hidden": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ref"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "width": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "height": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "subjectArea": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  }
+                },
+                "required": [
+                  "name",
+                  "x",
+                  "y",
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "shapes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "shape": {
+                    "type": "string",
+                    "enum": [
+                      "note",
+                      "text",
+                      "rectangle",
+                      "roundedRectangle",
+                      "ellipse",
+                      "diamond",
+                      "cylinder",
+                      "process",
+                      "parallelogram",
+                      "hexagon",
+                      "table",
+                      "legend"
+                    ],
+                    "default": "rectangle"
+                  },
+                  "text": {
+                    "type": "string",
+                    "default": ""
+                  },
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "width": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "default": 180
+                  },
+                  "height": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "default": 90
+                  },
+                  "rotation": {
+                    "type": "number"
+                  },
+                  "z": {
+                    "type": "number"
+                  },
+                  "format": {
+                    "type": "object",
+                    "properties": {
+                      "fill": {
+                        "type": "string"
+                      },
+                      "stroke": {
+                        "type": "string"
+                      },
+                      "strokeWidth": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "strokeStyle": {
+                        "type": "string",
+                        "enum": [
+                          "solid",
+                          "dashed",
+                          "dotted"
+                        ]
+                      },
+                      "textColor": {
+                        "type": "string"
+                      },
+                      "fontSize": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "bold": {
+                        "type": "boolean"
+                      },
+                      "italic": {
+                        "type": "boolean"
+                      },
+                      "underline": {
+                        "type": "boolean"
+                      },
+                      "align": {
+                        "type": "string",
+                        "enum": [
+                          "left",
+                          "center",
+                          "right"
+                        ]
+                      },
+                      "verticalAlign": {
+                        "type": "string",
+                        "enum": [
+                          "top",
+                          "middle",
+                          "bottom"
+                        ]
+                      },
+                      "cornerRadius": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "opacity": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      }
+                    },
+                    "additionalProperties": true,
+                    "default": {}
+                  },
+                  "ref": {
+                    "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                  }
+                },
+                "required": [
+                  "id",
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "connectors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "from": {
+                    "type": "object",
+                    "properties": {
+                      "shape": {
+                        "type": "string"
+                      },
+                      "ref": {
+                        "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+                      },
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      },
+                      "side": {
+                        "type": "string",
+                        "enum": [
+                          "left",
+                          "right",
+                          "top",
+                          "bottom",
+                          "auto"
+                        ],
+                        "default": "auto"
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  "to": {
+                    "$ref": "#/definitions/StrataObject/anyOf/10/properties/connectors/items/properties/from"
+                  },
+                  "waypoints": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y"
+                      ],
+                      "additionalProperties": true
+                    },
+                    "default": []
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "lineStyle": {
+                    "type": "string",
+                    "enum": [
+                      "straight",
+                      "orthogonal",
+                      "curved"
+                    ],
+                    "default": "curved"
+                  },
+                  "arrowStart": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "arrow",
+                      "openArrow",
+                      "circle",
+                      "diamond"
+                    ],
+                    "default": "none"
+                  },
+                  "arrowEnd": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "arrow",
+                      "openArrow",
+                      "circle",
+                      "diamond"
+                    ],
+                    "default": "arrow"
+                  },
+                  "format": {
+                    "$ref": "#/definitions/StrataObject/anyOf/10/properties/shapes/items/properties/format",
+                    "default": {}
+                  }
+                },
+                "required": [
+                  "id",
+                  "from",
+                  "to"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "annotations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string",
+                    "default": ""
+                  },
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "width": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "default": 220
+                  },
+                  "height": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "default": 90
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": [
+                      "note",
+                      "label",
+                      "legend"
+                    ],
+                    "default": "note"
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "fontSize": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "bold": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "x",
+                  "y"
+                ],
+                "additionalProperties": true
+              },
+              "default": []
+            },
+            "viewport": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "default": 0
+                },
+                "y": {
+                  "type": "number",
+                  "default": 0
+                },
+                "zoom": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "default": 1
+                }
+              },
+              "additionalProperties": true
+            },
+            "autoIncludeSubjectAreas": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/StrataObject/anyOf/0/properties/model"
+              },
+              "default": []
+            },
+            "displayLevel": {
+              "type": "string",
+              "enum": [
+                "entityOnly",
+                "keysOnly",
+                "attributes",
+                "attributesWithTypes"
+              ],
+              "default": "attributes"
+            },
+            "gridSize": {
+              "type": "number",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "model",
+            "kind"
+          ],
+          "additionalProperties": true
+        }
+      ]
+    }
+  }
+}

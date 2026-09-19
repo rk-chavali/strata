@@ -1,0 +1,14 @@
+# The shop_warehouse namespace.
+#
+# Everything is private unless listed under `exports`. Edit this file by
+# hand: who owns these definitions and what they publish is a decision,
+# not something derivable from the schema, so it is never regenerated.
+#
+# `owners` is required. Replace a placeholder owner with the team that
+# answers when one of these numbers is disputed.
+
+version: 1
+name: shop_warehouse
+owners:
+  - "@unassigned"
+description: BigQuery. Real types, real partitioning, real clustering.

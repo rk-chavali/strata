@@ -1,0 +1,39 @@
+version: 2
+
+updates:
+  # The actions in .github/workflows are pinned to commit SHAs, which is correct and has a
+  # cost: a pinned SHA never updates itself, so without this there is nothing watching them.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # One entry for the whole pnpm workspace: the lockfile is at the root and dependabot
+  # resolves workspace packages from it.
+  #
+  # Grouped, and monthly rather than weekly. Ungrouped weekly updates on a project this size
+  # produce more pull requests than anyone reviews, and unreviewed dependency PRs are worse
+  # than none: they train you to merge lockfile changes without looking.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      dev-minor-and-patch:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+      prod-minor-and-patch:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(deps)"

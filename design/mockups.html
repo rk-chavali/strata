@@ -1,0 +1,1117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>strata, three UI directions</title>
+
+    <style>
+      /*
+       * Three directions for the same application, so they can be compared fairly.
+       *
+       * The diagram content is identical in all three and is built once in script, * only the surrounding application shell differs. That is the thing actually
+       * being chosen here.
+       *
+       * Craft rules applied throughout, because the last attempt broke all of them:
+       *   - one 4px spacing grid, no arbitrary values
+       *   - one type scale, five sizes, nothing in between
+       *   - one icon set: 16px SVG, 1.5 stroke, currentColor. No emoji anywhere.
+       *   - one neutral ramp plus one accent
+       *   - borders are 1px and always the same colour
+       */
+
+      :root {
+        --s1: 2px; --s2: 4px; --s3: 6px; --s4: 8px; --s5: 12px;
+        --s6: 16px; --s7: 20px; --s8: 24px; --s9: 32px;
+
+        --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-lg: 15px; --fs-xl: 20px;
+
+        --r-sm: 4px; --r: 6px; --r-lg: 10px;
+
+        --font: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+        --mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, Consolas, monospace;
+
+        /* Neutral ramp */
+        --n0: #ffffff;
+        --n1: #fafbfc;
+        --n2: #f4f6f8;
+        --n3: #eaedf1;
+        --n4: #dde2e8;
+        --n5: #c3cbd5;
+        --n6: #8b96a5;
+        --n7: #5a6472;
+        --n8: #333c48;
+        --n9: #1a2029;
+
+        --accent: #2563eb;
+        --accent-soft: #eef4ff;
+        --accent-line: #bfd4fe;
+
+        --ok: #167c4a;
+        --ok-soft: #e8f5ee;
+        --warn: #9a6200;
+        --warn-soft: #fdf4e3;
+        --err: #c0332b;
+        --err-soft: #fdeeed;
+
+        --conceptual: #a4682c;
+        --logical: #167c4a;
+        --physical: #2563eb;
+
+        --shadow-1: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 10%);
+        --shadow-2: 0 4px 8px -2px rgb(16 24 40 / 10%), 0 2px 4px -2px rgb(16 24 40 / 6%);
+        --shadow-3: 0 12px 24px -6px rgb(16 24 40 / 14%), 0 4px 8px -4px rgb(16 24 40 / 8%);
+      }
+
+      [data-theme="dark"] {
+        --n0: #12161c;
+        --n1: #171c23;
+        --n2: #1d232b;
+        --n3: #242b35;
+        --n4: #2e3742;
+        --n5: #414c5a;
+        --n6: #7b8797;
+        --n7: #a5b0bd;
+        --n8: #d2d9e1;
+        --n9: #eef1f5;
+
+        --accent: #5b9bff;
+        --accent-soft: #172436;
+        --accent-line: #31465f;
+
+        --ok: #4cb782; --ok-soft: #14251d;
+        --warn: #d9a441; --warn-soft: #2a2214;
+        --err: #f0736a; --err-soft: #2c1817;
+
+        --conceptual: #d0a05f;
+        --logical: #4cb782;
+        --physical: #5b9bff;
+
+        --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+        --shadow-2: 0 4px 10px -2px rgb(0 0 0 / 50%);
+        --shadow-3: 0 14px 28px -8px rgb(0 0 0 / 60%);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body { height: 100%; margin: 0; }
+
+      body {
+        background: var(--n2);
+        color: var(--n9);
+        font-family: var(--font);
+        font-size: var(--fs-md);
+        line-height: 1.45;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+      .mono { font-family: var(--mono); font-size: var(--fs-xs); }
+      .icon { width: 16px; height: 16px; flex: none; stroke-width: 1.5; }
+      .icon--sm { width: 14px; height: 14px; }
+      .icon--lg { width: 20px; height: 20px; }
+
+      /* ---------------------------------------------------------- switcher */
+
+      .switcher {
+        position: fixed;
+        bottom: var(--s7);
+        left: 50%;
+        z-index: 999;
+        display: flex;
+        gap: var(--s1);
+        align-items: center;
+        padding: var(--s2);
+        background: var(--n9);
+        border-radius: 999px;
+        box-shadow: var(--shadow-3);
+        transform: translateX(-50%);
+      }
+
+      .switcher button {
+        padding: var(--s3) var(--s6);
+        color: #aab3c0;
+        font-size: var(--fs-sm);
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+
+      .switcher button:hover { color: #fff; }
+      .switcher button.on { color: #fff; background: rgb(255 255 255 / 14%); }
+      .switcher .sep { width: 1px; height: 18px; margin: 0 var(--s2); background: rgb(255 255 255 / 18%); }
+
+      .view { display: none; height: 100%; }
+      .view.on { display: grid; }
+
+      /* ---------------------------------------------------------- shared bits */
+
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        color: #fff;
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        background: var(--accent);
+        border-radius: 999px;
+      }
+
+      .chip {
+        display: inline-flex;
+        gap: var(--s3);
+        align-items: center;
+        padding: var(--s2) var(--s4);
+        font-size: var(--fs-xs);
+        border-radius: var(--r-sm);
+        white-space: nowrap;
+      }
+
+      .chip--ok { color: var(--ok); background: var(--ok-soft); }
+      .chip--warn { color: var(--warn); background: var(--warn-soft); }
+      .chip--muted { color: var(--n7); background: var(--n3); }
+
+      .btn {
+        display: inline-flex;
+        gap: var(--s3);
+        align-items: center;
+        padding: var(--s3) var(--s5);
+        font-size: var(--fs-sm);
+        font-weight: 500;
+        border: 1px solid transparent;
+        border-radius: var(--r-sm);
+      }
+
+      .btn--primary { color: #fff; background: var(--accent); }
+      .btn--ghost { color: var(--n8); border-color: var(--n4); background: var(--n0); }
+      .btn--ghost:hover { background: var(--n2); }
+      .btn--quiet { color: var(--n7); }
+      .btn--quiet:hover { color: var(--n9); background: var(--n3); }
+
+      .divider-v { width: 1px; align-self: stretch; margin: var(--s3) var(--s2); background: var(--n4); }
+
+      /* ---------------------------------------------------------- canvas */
+
+      .canvas {
+        position: relative;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 1px 1px, var(--n4) 1px, transparent 0) 0 0 / 20px 20px,
+          var(--n1);
+      }
+
+      .canvas__inner { position: absolute; inset: 0; }
+      .wires { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+      .wires path { fill: none; stroke: var(--n5); stroke-width: 1.5; }
+      .wires path.fk { stroke: var(--physical); stroke-dasharray: 5 4; }
+      .wires text { fill: var(--n6); font-family: var(--font); font-size: 10px; }
+
+      /* An entity/table box. This is the heart of the product, so it gets the care. */
+      .box {
+        position: absolute;
+        width: 232px;
+        overflow: hidden;
+        background: var(--n0);
+        border: 1px solid var(--n4);
+        border-radius: var(--r);
+        box-shadow: var(--shadow-1);
+      }
+
+      .box.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); }
+      .box__rule { height: 3px; }
+      .box--fact .box__rule { background: var(--physical); }
+      .box--dim .box__rule { background: var(--logical); }
+      .box--stg .box__rule { background: var(--n5); }
+
+      .box__head {
+        display: flex;
+        gap: var(--s3);
+        align-items: center;
+        padding: var(--s4) var(--s5);
+        border-bottom: 1px solid var(--n3);
+      }
+
+      .box__title { flex: 1; font-size: var(--fs-sm); font-weight: 600; letter-spacing: -0.01em; }
+      .box__tag {
+        padding: 1px var(--s3);
+        color: var(--n7);
+        font-size: 10px;
+        background: var(--n3);
+        border-radius: 999px;
+      }
+
+      .box__keys { background: var(--n1); border-bottom: 1px solid var(--n3); }
+      .box__rows { padding: var(--s2) 0; }
+
+      .row {
+        display: flex;
+        gap: var(--s4);
+        align-items: center;
+        padding: 3px var(--s5);
+        font-size: var(--fs-xs);
+      }
+
+      .row:hover { background: var(--n2); }
+      .row__key { width: 12px; color: var(--accent); flex: none; }
+      .row__name { flex: 1; overflow: hidden; color: var(--n8); text-overflow: ellipsis; white-space: nowrap; }
+      .row__name.req { font-weight: 500; color: var(--n9); }
+      .row__type { color: var(--n6); font-family: var(--mono); font-size: 10px; }
+      .row__pii {
+        padding: 0 var(--s3);
+        color: var(--warn);
+        font-size: 9px;
+        background: var(--warn-soft);
+        border-radius: 999px;
+      }
+
+      .box__add {
+        display: flex;
+        gap: var(--s3);
+        align-items: center;
+        width: 100%;
+        padding: var(--s3) var(--s5);
+        color: var(--accent);
+        font-size: 10px;
+        border-top: 1px solid var(--n3);
+      }
+
+      .box__add:hover { background: var(--accent-soft); }
+
+      .note {
+        position: absolute;
+        width: 208px;
+        padding: var(--s4) var(--s5);
+        color: #7a6320;
+        font-size: var(--fs-xs);
+        line-height: 1.5;
+        background: #fffbeb;
+        border: 1px solid #f0dfa8;
+        border-radius: var(--r-sm);
+        box-shadow: var(--shadow-1);
+      }
+
+      [data-theme="dark"] .note { color: #e0cd93; background: #2a2416; border-color: #4a4126; }
+
+      .zoomer {
+        position: absolute;
+        right: var(--s6);
+        bottom: var(--s6);
+        display: flex;
+        align-items: center;
+        padding: var(--s1);
+        background: var(--n0);
+        border: 1px solid var(--n4);
+        border-radius: var(--r);
+        box-shadow: var(--shadow-1);
+      }
+
+      .zoomer button { display: grid; place-items: center; width: 28px; height: 28px; color: var(--n7); border-radius: var(--r-sm); }
+      .zoomer button:hover { background: var(--n2); }
+      .zoomer span { padding: 0 var(--s4); color: var(--n7); font-size: var(--fs-xs); }
+
+      /* ---------------------------------------------------------- tree */
+
+      .tree { padding: var(--s3) 0; }
+
+      .tree__label {
+        padding: var(--s4) var(--s5) var(--s2);
+        color: var(--n6);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .tree__row {
+        display: flex;
+        gap: var(--s3);
+        align-items: center;
+        width: 100%;
+        padding: var(--s3) var(--s5);
+        font-size: var(--fs-sm);
+        text-align: left;
+        border-left: 2px solid transparent;
+      }
+
+      .tree__row:hover { background: var(--n2); }
+      .tree__row.on { color: var(--accent); font-weight: 600; background: var(--accent-soft); border-left-color: var(--accent); }
+      .tree__row .count { margin-left: auto; color: var(--n6); font-size: 10px; }
+      .tree__row.child { padding-left: var(--s9); color: var(--n7); font-size: var(--fs-xs); }
+      .dot { width: 7px; height: 7px; flex: none; border-radius: 999px; }
+
+      .search {
+        display: flex;
+        gap: var(--s3);
+        align-items: center;
+        margin: var(--s5);
+        padding: var(--s3) var(--s4);
+        color: var(--n6);
+        background: var(--n2);
+        border: 1px solid transparent;
+        border-radius: var(--r-sm);
+      }
+
+      .search:focus-within { background: var(--n0); border-color: var(--accent); }
+      .search input { width: 100%; color: var(--n9); font: inherit; font-size: var(--fs-sm); background: none; border: none; outline: none; }
+      .search kbd {
+        padding: 1px var(--s3);
+        color: var(--n6);
+        font-family: var(--font);
+        font-size: 10px;
+        background: var(--n0);
+        border: 1px solid var(--n4);
+        border-radius: 3px;
+      }
+
+      /* ==========================================================
+         A, Canvas first
+         ========================================================== */
+
+      #view-a { grid-template-rows: 48px 1fr; }
+
+      .a-top {
+        display: flex;
+        gap: var(--s5);
+        align-items: center;
+        padding: 0 var(--s6);
+        background: var(--n0);
+        border-bottom: 1px solid var(--n4);
+      }
+
+      .a-brand { display: flex; gap: var(--s4); align-items: center; font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.02em; }
+      .a-mark { display: grid; place-items: center; width: 24px; height: 24px; color: #fff; background: var(--n9); border-radius: var(--r-sm); }
+
+      .a-picker {
+        display: flex;
+        gap: var(--s3);
+        align-items: center;
+        padding: var(--s3) var(--s4) var(--s3) var(--s5);
+        font-size: var(--fs-sm);
+        font-weight: 500;
+        border: 1px solid var(--n4);
+        border-radius: 999px;
+      }
+
+      .a-picker:hover { background: var(--n2); }
+      .a-spacer { flex: 1; }
+
+      .a-search {
+        display: flex;
+        gap: var(--s3);
+        align-items: center;
+        width: 260px;
+        padding: var(--s3) var(--s5);
+        color: var(--n6);
+        font-size: var(--fs-sm);
+        background: var(--n2);
+        border-radius: 999px;
+      }
+
+      .a-body { position: relative; display: grid; grid-template-columns: 52px 1fr; }
+
+      .a-rail {
+        display: flex;
+        flex-direction: column;
+        gap: var(--s2);
+        align-items: center;
+        padding: var(--s5) 0;
+        background: var(--n0);
+        border-right: 1px solid var(--n4);
+      }
+
+      .a-rail button {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        color: var(--n6);
+        border-radius: var(--r);
+      }
+
+      .a-rail button:hover { color: var(--n9); background: var(--n2); }
+      .a-rail button.on { color: var(--accent); background: var(--accent-soft); }
+      .a-rail .grow { flex: 1; }
+
+      /* Selection toolbar: actions come to the object, not the object to a panel. */
+      .a-float {
+        position: absolute;
+        z-index: 20;
+        display: flex;
+        gap: var(--s1);
+        align-items: center;
+        padding: var(--s2);
+        background: var(--n9);
+        border-radius: var(--r);
+        box-shadow: var(--shadow-3);
+      }
+
+      .a-float button {
+        display: flex;
+        gap: var(--s3);
+        align-items: center;
+        padding: var(--s3) var(--s4);
+        color: #cbd3dd;
+        font-size: var(--fs-xs);
+        border-radius: var(--r-sm);
+      }
+
+      .a-float button:hover { color: #fff; background: rgb(255 255 255 / 12%); }
+      .a-float .sep { width: 1px; height: 16px; margin: 0 var(--s2); background: rgb(255 255 255 / 18%); }
+      .a-float::after {
+        position: absolute;
+        bottom: -5px;
+        left: 24px;
+        width: 10px;
+        height: 10px;
+        background: var(--n9);
+        content: "";
+        transform: rotate(45deg);
+      }
+
+      .a-status {
+        position: absolute;
+        bottom: var(--s6);
+        left: var(--s6);
+        display: flex;
+        gap: var(--s3);
+        align-items: center;
+      }
+
+      .a-status .chip { background: var(--n0); border: 1px solid var(--n4); box-shadow: var(--shadow-1); }
+
+      /* ==========================================================
+         B, Ribbon
+         ========================================================== */
+
+      #view-b { grid-template-rows: 34px auto 1fr 24px; }
+
+      .b-title {
+        display: flex;
+        gap: var(--s5);
+        align-items: center;
+        padding: 0 var(--s5);
+        background: var(--n3);
+        border-bottom: 1px solid var(--n4);
+      }
+
+      .b-title__name { font-size: var(--fs-sm); font-weight: 600; }
+      .b-title__path { color: var(--n7); font-size: var(--fs-xs); }
+
+      .b-tabs {
+        display: flex;
+        align-items: center;
+        padding: 0 var(--s5);
+        background: var(--n3);
+      }
+
+      .b-tabs button {
+        padding: var(--s3) var(--s5);
+        color: var(--n7);
+        font-size: var(--fs-sm);
+        border-radius: var(--r-sm) var(--r-sm) 0 0;
+      }
+
+      .b-tabs button:hover { color: var(--n9); }
+      .b-tabs button.on { color: var(--n9); font-weight: 600; background: var(--n0); }
+      .b-tabs .grow { flex: 1; }
+
+      .b-ribbon {
+        display: flex;
+        align-items: stretch;
+        padding: var(--s4) var(--s5);
+        background: var(--n0);
+        border-bottom: 1px solid var(--n4);
+      }
+
+      .b-group { display: flex; flex-direction: column; gap: var(--s3); padding: 0 var(--s5); border-right: 1px solid var(--n3); }
+      .b-group:last-child { border-right: none; }
+      .b-group__row { display: flex; gap: var(--s2); align-items: flex-start; flex: 1; }
+      .b-group__cap { color: var(--n6); font-size: 10px; text-align: center; }
+      .b-col { display: flex; flex-direction: column; gap: 1px; }
+
+      .b-big {
+        display: flex;
+        flex-direction: column;
+        gap: var(--s3);
+        align-items: center;
+        width: 62px;
+        padding: var(--s4) var(--s3);
+        color: var(--n8);
+        border-radius: var(--r-sm);
+      }
+
+      .b-big:hover { background: var(--n2); }
+      .b-big span { font-size: 10px; line-height: 1.2; text-align: center; }
+
+      .b-small {
+        display: flex;
+        gap: var(--s3);
+        align-items: center;
+        padding: var(--s2) var(--s4);
+        color: var(--n8);
+        font-size: var(--fs-xs);
+        border-radius: var(--r-sm);
+        white-space: nowrap;
+      }
+
+      .b-small:hover { background: var(--n2); }
+      .b-small:disabled { color: var(--n5); cursor: default; }
+      .b-small:disabled:hover { background: none; }
+
+      .b-body { display: grid; grid-template-columns: 224px 1fr; min-height: 0; }
+      .b-side { overflow-y: auto; background: var(--n1); border-right: 1px solid var(--n4); }
+
+      .b-status {
+        display: flex;
+        gap: var(--s5);
+        align-items: center;
+        padding: 0 var(--s5);
+        color: var(--n7);
+        font-size: var(--fs-xs);
+        background: var(--n3);
+        border-top: 1px solid var(--n4);
+      }
+
+      .b-status .grow { flex: 1; }
+      .b-status button { display: flex; gap: var(--s3); align-items: center; color: inherit; }
+      .b-status button:hover { color: var(--n9); }
+
+      /* ==========================================================
+         C, Classic
+         ========================================================== */
+
+      #view-c { grid-template-rows: 26px 36px 1fr 22px; }
+
+      .c-menu {
+        display: flex;
+        align-items: center;
+        padding: 0 var(--s4);
+        background: var(--n2);
+        border-bottom: 1px solid var(--n4);
+      }
+
+      .c-menu button { padding: var(--s2) var(--s5); font-size: var(--fs-sm); border-radius: 3px; }
+      .c-menu button:hover { background: var(--n4); }
+      .c-menu .grow { flex: 1; }
+
+      .c-tools {
+        display: flex;
+        gap: var(--s1);
+        align-items: center;
+        padding: 0 var(--s4);
+        background: var(--n0);
+        border-bottom: 1px solid var(--n4);
+      }
+
+      .c-tools button {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 26px;
+        color: var(--n7);
+        border-radius: 3px;
+      }
+
+      .c-tools button:hover { color: var(--n9); background: var(--n3); }
+      .c-tools button.on { color: var(--accent); background: var(--accent-soft); }
+      .c-tools .grow { flex: 1; }
+      .c-tools .divider-v { margin: var(--s3) var(--s3); }
+
+      .c-body { display: grid; grid-template-columns: 232px 1fr 268px; min-height: 0; }
+      .c-left { overflow-y: auto; background: var(--n1); border-right: 1px solid var(--n4); }
+      .c-right { overflow-y: auto; background: var(--n1); border-left: 1px solid var(--n4); }
+
+      .c-panelhead {
+        display: flex;
+        gap: var(--s3);
+        align-items: center;
+        padding: var(--s4) var(--s5);
+        color: var(--n7);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: var(--n2);
+        border-bottom: 1px solid var(--n4);
+      }
+
+      /* Property grid: two columns, hairline rules, editable-looking values. */
+      .grid { width: 100%; font-size: var(--fs-xs); border-collapse: collapse; }
+      .grid tr { border-bottom: 1px solid var(--n3); }
+      .grid td { padding: var(--s3) var(--s5); }
+      .grid td:first-child { width: 96px; color: var(--n7); }
+      .grid td:last-child { color: var(--n9); }
+      .grid .sub { color: var(--n6); font-weight: 600; background: var(--n2); }
+      .grid input {
+        width: 100%;
+        padding: 1px var(--s2);
+        color: inherit;
+        font: inherit;
+        background: none;
+        border: 1px solid transparent;
+        border-radius: 3px;
+      }
+
+      .grid input:hover { border-color: var(--n4); background: var(--n0); }
+      .grid input:focus { border-color: var(--accent); background: var(--n0); outline: none; }
+
+      .c-status {
+        display: flex;
+        gap: var(--s5);
+        align-items: center;
+        padding: 0 var(--s5);
+        color: var(--n7);
+        font-size: var(--fs-xs);
+        background: var(--n2);
+        border-top: 1px solid var(--n4);
+      }
+
+      .c-status .grow { flex: 1; }
+    </style>
+  </head>
+
+  <body>
+    <!-- One icon set. 16px grid, 1.5 stroke, currentColor, no fills. -->
+    <svg style="display: none" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="i-table" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M6.5 6v7.5"/></symbol>
+      <symbol id="i-entity" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 6.5h12"/></symbol>
+      <symbol id="i-key" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="6.5" r="2.5"/><path d="M7.5 8.5 13 14M11 12l1.5-1.5M9.5 10.5 11 9"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5 13.5 4.5 5.5 12.5 2.5 13.5 3.5 10.5z"/></symbol>
+      <symbol id="i-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8M12.4 3.6 11.3 4.7M4.7 11.3l-1.1 1.1M12.4 12.4l-1.1-1.1M4.7 4.7 3.6 3.6"/></symbol>
+      <symbol id="i-users" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="5.5" r="2.5"/><path d="M2 13.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4M11 3.4a2.4 2.4 0 0 1 0 4.4M12.5 13.5c0-1.6-.5-2.7-1.3-3.4"/></symbol>
+      <symbol id="i-branch" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="3.5" r="1.8"/><circle cx="4.5" cy="12.5" r="1.8"/><circle cx="11.5" cy="5.5" r="1.8"/><path d="M4.5 5.3v5.4M11.5 7.3c0 2.2-2 3-4.4 3.3"/></symbol>
+      <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.5 12 13 4.5"/></symbol>
+      <symbol id="i-warn" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5 14.5 13.5h-13z"/><path d="M8 6.5v3M8 11.6v.1"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 14 5.5 8 9 2 5.5z"/><path d="M2 9.5 8 13l6-3.5"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12.5v-9h4l1.5 2h6.5v7z"/></symbol>
+      <symbol id="i-note" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2.5h10v7l-3.5 4H3z"/><path d="M13 9.5H9.5v4M5.5 5.5h5M5.5 8h3"/></symbol>
+      <symbol id="i-fit" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></symbol>
+      <symbol id="i-chev-d" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 8 10.5 12 6.5"/></symbol>
+      <symbol id="i-chev-r" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4 10.5 8 6.5 12"/></symbol>
+      <symbol id="i-chev-u" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 8 5.5 12 9.5"/></symbol>
+      <symbol id="i-pr" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 13V6.5A3 3 0 0 1 8.5 3.5H12"/><path d="M9.5 1.5 12 3.5 9.5 5.5"/><circle cx="5.5" cy="13" r="1.6"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.7-4"/><path d="M13.7 1.5v3h-3"/></symbol>
+      <symbol id="i-list" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M5.5 4h8M5.5 8h8M5.5 12h8M2.5 4h.01M2.5 8h.01M2.5 12h.01"/></symbol>
+      <symbol id="i-close" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+      <symbol id="i-zin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M8 4.5v7M4.5 8h7"/></symbol>
+      <symbol id="i-zout" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M4.5 8h7"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8 13.2 4v4c0 3.2-2.2 5.4-5.2 6.2C5 13.4 2.8 11.2 2.8 8V4z"/><path d="M6 8l1.6 1.6L10.2 7"/></symbol>
+      <symbol id="i-flow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="5.5" width="4" height="5" rx="1"/><rect x="10.5" y="2.5" width="4" height="4" rx="1"/><rect x="10.5" y="9.5" width="4" height="4" rx="1"/><path d="M5.5 7.5h2.5v-3h2.5M5.5 8.5h2.5v3h2.5"/></symbol>
+      <symbol id="i-link" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5 9.5 6.5"/><path d="M7 4.5 8.5 3a2.8 2.8 0 0 1 4 4L11 8.5M9 11.5 7.5 13a2.8 2.8 0 0 1-4-4L5 7.5"/></symbol>
+    </svg>
+
+    <!-- ===================================================== A: canvas first -->
+    <section class="view on" id="view-a">
+      <header class="a-top">
+        <div class="a-brand"><span class="a-mark"><svg class="icon icon--sm"><use href="#i-layers" /></svg></span> strata</div>
+        <div class="divider-v"></div>
+        <button class="a-picker">
+          <span class="dot" style="background: var(--physical)"></span> retail_warehouse
+          <svg class="icon icon--sm" style="color: var(--n6)"><use href="#i-chev-d" /></svg>
+        </button>
+        <div class="a-spacer"></div>
+        <div class="a-search"><svg class="icon icon--sm"><use href="#i-search" /></svg> Search or jump to…</div>
+        <div class="divider-v"></div>
+        <button class="btn btn--ghost"><svg class="icon icon--sm"><use href="#i-pr" /></svg> Propose · 3</button>
+        <div class="avatar">R</div>
+      </header>
+
+      <div class="a-body">
+        <nav class="a-rail">
+          <button class="on" title="Models"><svg class="icon"><use href="#i-layers" /></svg></button>
+          <button title="Search"><svg class="icon"><use href="#i-search" /></svg></button>
+          <button title="Problems"><svg class="icon"><use href="#i-warn" /></svg></button>
+          <button title="Changes"><svg class="icon"><use href="#i-branch" /></svg></button>
+          <button title="Pipelines"><svg class="icon"><use href="#i-flow" /></svg></button>
+          <span class="grow"></span>
+          <button title="Settings"><svg class="icon"><use href="#i-settings" /></svg></button>
+        </nav>
+
+        <div class="canvas" data-canvas>
+          <div class="a-float" style="left: 336px; top: 120px">
+            <button><svg class="icon icon--sm"><use href="#i-edit" /></svg> Rename</button>
+            <button><svg class="icon icon--sm"><use href="#i-plus" /></svg> Column</button>
+            <button><svg class="icon icon--sm"><use href="#i-key" /></svg> Key</button>
+            <button><svg class="icon icon--sm"><use href="#i-link" /></svg> Relate</button>
+            <span class="sep"></span>
+            <button><svg class="icon icon--sm"><use href="#i-trash" /></svg></button>
+          </div>
+
+          <div class="a-status">
+            <span class="chip chip--ok"><svg class="icon icon--sm"><use href="#i-check" /></svg> Model valid</span>
+            <span class="chip chip--muted"><svg class="icon icon--sm"><use href="#i-branch" /></svg> main · 3 changed</span>
+          </div>
+
+          <div class="zoomer">
+            <button><svg class="icon icon--sm"><use href="#i-zout" /></svg></button>
+            <span>80%</span>
+            <button><svg class="icon icon--sm"><use href="#i-zin" /></svg></button>
+            <button><svg class="icon icon--sm"><use href="#i-fit" /></svg></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================== B: ribbon -->
+    <section class="view" id="view-b">
+      <header class="b-title">
+        <span class="b-title__name">retail</span>
+        <span class="b-title__path mono">~/data-models</span>
+        <span style="flex: 1"></span>
+        <span class="chip chip--muted">admin</span>
+        <div class="avatar" style="width: 22px; height: 22px">R</div>
+      </header>
+
+      <div>
+        <nav class="b-tabs">
+          <button class="on">Home</button>
+          <button>Model</button>
+          <button>Diagram</button>
+          <button>Governance</button>
+          <button>View</button>
+          <span class="grow"></span>
+          <button title="Collapse ribbon" style="color: var(--n6)"><svg class="icon icon--sm"><use href="#i-chev-u" /></svg></button>
+        </nav>
+
+        <div class="b-ribbon">
+          <div class="b-group">
+            <div class="b-group__row">
+              <button class="b-big"><svg class="icon icon--lg"><use href="#i-table" /></svg><span>New<br />table</span></button>
+              <div class="b-col">
+                <button class="b-small"><svg class="icon icon--sm"><use href="#i-flow" /></svg> Mapping</button>
+                <button class="b-small"><svg class="icon icon--sm"><use href="#i-folder" /></svg> Subject area</button>
+                <button class="b-small"><svg class="icon icon--sm"><use href="#i-grid" /></svg> Domain</button>
+              </div>
+            </div>
+            <div class="b-group__cap">Create</div>
+          </div>
+
+          <div class="b-group">
+            <div class="b-group__row">
+              <button class="b-big"><svg class="icon icon--lg"><use href="#i-edit" /></svg><span>Rename</span></button>
+              <div class="b-col">
+                <button class="b-small"><svg class="icon icon--sm"><use href="#i-plus" /></svg> Add column</button>
+                <button class="b-small"><svg class="icon icon--sm"><use href="#i-key" /></svg> Toggle key</button>
+                <button class="b-small"><svg class="icon icon--sm"><use href="#i-trash" /></svg> Delete</button>
+              </div>
+            </div>
+            <div class="b-group__cap">Selection</div>
+          </div>
+
+          <div class="b-group">
+            <div class="b-group__row">
+              <button class="b-big"><svg class="icon icon--lg"><use href="#i-pr" /></svg><span>Propose<br />changes</span></button>
+              <div class="b-col">
+                <button class="b-small"><svg class="icon icon--sm"><use href="#i-list" /></svg> Changes (3)</button>
+                <button class="b-small"><svg class="icon icon--sm"><use href="#i-refresh" /></svg> Reload</button>
+              </div>
+            </div>
+            <div class="b-group__cap">Source control</div>
+          </div>
+
+          <div class="b-group">
+            <div class="b-group__row">
+              <button class="b-big"><svg class="icon icon--lg"><use href="#i-shield" /></svg><span>Check<br />model</span></button>
+              <div class="b-col">
+                <button class="b-small"><svg class="icon icon--sm"><use href="#i-warn" /></svg> Problems (0)</button>
+                <button class="b-small"><svg class="icon icon--sm"><use href="#i-users" /></svg> Users</button>
+              </div>
+            </div>
+            <div class="b-group__cap">Governance</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="b-body">
+        <aside class="b-side">
+          <div class="search"><svg class="icon icon--sm"><use href="#i-search" /></svg><input placeholder="Search objects" /><kbd>/</kbd></div>
+          <div data-tree></div>
+        </aside>
+        <div class="canvas" data-canvas>
+          <div class="zoomer">
+            <button><svg class="icon icon--sm"><use href="#i-zout" /></svg></button>
+            <span>80%</span>
+            <button><svg class="icon icon--sm"><use href="#i-zin" /></svg></button>
+            <button><svg class="icon icon--sm"><use href="#i-fit" /></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <footer class="b-status">
+        <button><svg class="icon icon--sm" style="color: var(--ok)"><use href="#i-check" /></svg> Model valid</button>
+        <button><svg class="icon icon--sm"><use href="#i-branch" /></svg> main · 3 changed</button>
+        <span>table: dim_customer</span>
+        <span class="grow"></span>
+        <span>38 objects</span>
+        <button>by-model-and-kind</button>
+      </footer>
+    </section>
+
+    <!-- ===================================================== C: classic -->
+    <section class="view" id="view-c">
+      <nav class="c-menu">
+        <button>File</button><button>Edit</button><button>View</button>
+        <button>Model</button><button>Diagram</button><button>Tools</button><button>Help</button>
+        <span class="grow"></span>
+        <span style="color: var(--n7); font-size: var(--fs-xs)">retail, retail_warehouse</span>
+      </nav>
+
+      <div class="c-tools">
+        <button title="New table"><svg class="icon"><use href="#i-table" /></svg></button>
+        <button title="New mapping"><svg class="icon"><use href="#i-flow" /></svg></button>
+        <button title="New relationship"><svg class="icon"><use href="#i-link" /></svg></button>
+        <div class="divider-v"></div>
+        <button title="Add column"><svg class="icon"><use href="#i-plus" /></svg></button>
+        <button title="Toggle key"><svg class="icon"><use href="#i-key" /></svg></button>
+        <button title="Delete"><svg class="icon"><use href="#i-trash" /></svg></button>
+        <div class="divider-v"></div>
+        <button title="Text box"><svg class="icon"><use href="#i-note" /></svg></button>
+        <button class="on" title="Auto layout"><svg class="icon"><use href="#i-grid" /></svg></button>
+        <button title="Fit"><svg class="icon"><use href="#i-fit" /></svg></button>
+        <div class="divider-v"></div>
+        <button title="Validate"><svg class="icon"><use href="#i-shield" /></svg></button>
+        <button title="Propose changes"><svg class="icon"><use href="#i-pr" /></svg></button>
+        <span class="grow"></span>
+        <button title="Settings"><svg class="icon"><use href="#i-settings" /></svg></button>
+      </div>
+
+      <div class="c-body">
+        <aside class="c-left">
+          <div class="c-panelhead"><svg class="icon icon--sm"><use href="#i-layers" /></svg> Model explorer</div>
+          <div class="search"><svg class="icon icon--sm"><use href="#i-search" /></svg><input placeholder="Filter" /></div>
+          <div data-tree></div>
+        </aside>
+
+        <div class="canvas" data-canvas></div>
+
+        <aside class="c-right">
+          <div class="c-panelhead"><svg class="icon icon--sm"><use href="#i-table" /></svg> Properties</div>
+          <table class="grid">
+            <tr class="sub"><td colspan="2">Table</td></tr>
+            <tr><td>Name</td><td><input value="dim_customer" /></td></tr>
+            <tr><td>Dataset</td><td><input value="retail_mart" /></td></tr>
+            <tr><td>Layer</td><td><input value="mart" /></td></tr>
+            <tr><td>Type</td><td><input value="incremental" /></td></tr>
+            <tr class="sub"><td colspan="2">Physical</td></tr>
+            <tr><td>Partition</td><td><input value="-" /></td></tr>
+            <tr><td>Cluster by</td><td><input value="customer_id, is_current" /></td></tr>
+            <tr class="sub"><td colspan="2">Selected column</td></tr>
+            <tr><td>Name</td><td><input value="email_address" /></td></tr>
+            <tr><td>Type</td><td><input value="STRING" /></td></tr>
+            <tr><td>Domain</td><td><input value="email_address" /></td></tr>
+            <tr><td>Required</td><td><input value="No" /></td></tr>
+            <tr><td>Class.</td><td><input value="pii / contact" /></td></tr>
+            <tr class="sub"><td colspan="2">Lineage</td></tr>
+            <tr><td>Source</td><td>stg_customer.email_address</td></tr>
+            <tr><td>Rule</td><td>LOWER(TRIM(…))</td></tr>
+          </table>
+        </aside>
+      </div>
+
+      <footer class="c-status">
+        <span>Ready</span>
+        <span>0 errors, 0 warnings</span>
+        <span>main · 3 changed</span>
+        <span class="grow"></span>
+        <span>38 objects · 38 files</span>
+        <span>80%</span>
+      </footer>
+    </section>
+
+    <div class="switcher">
+      <button data-view="view-a" class="on">A · Canvas-first</button>
+      <button data-view="view-b">B · Ribbon</button>
+      <button data-view="view-c">C · Classic</button>
+      <span class="sep"></span>
+      <button data-theme>Dark</button>
+    </div>
+
+    <script>
+      /*
+       * The diagram is built once and injected into all three shells, so the only
+       * variable being judged is the application chrome around it.
+       */
+      const TABLES = [
+        {
+          name: "stg_customer", tag: "staging", kind: "stg", x: 24, y: 168,
+          keys: [["customer_id", "STRING"]],
+          rows: [["customer_name", "STRING"], ["email_address", "STRING"], ["updated_at", "TIMESTAMP"]],
+        },
+        {
+          name: "dim_customer", tag: "mart", kind: "dim", x: 336, y: 48, selected: true,
+          keys: [["customer_key", "INT64"]],
+          rows: [
+            ["customer_id", "STRING"], ["customer_name", "STRING"],
+            ["email_address", "STRING", "pii"], ["valid_from", "TIMESTAMP"],
+            ["valid_to", "TIMESTAMP"], ["is_current", "BOOL"],
+          ],
+        },
+        {
+          name: "dim_product", tag: "mart", kind: "dim", x: 336, y: 356,
+          keys: [["product_key", "INT64"]],
+          rows: [["sku", "STRING"], ["product_name", "STRING"], ["list_price", "NUMERIC"]],
+        },
+        {
+          name: "fct_order_line", tag: "mart", kind: "fact", x: 660, y: 176,
+          keys: [["order_line_key", "INT64"]],
+          rows: [
+            ["order_id", "STRING"], ["customer_key", "INT64", null, true],
+            ["product_key", "INT64", null, true], ["order_date", "DATE"],
+            ["quantity", "INT64"], ["line_amount", "NUMERIC"],
+          ],
+        },
+      ];
+
+      const WIRES = [
+        { from: "dim_customer", to: "fct_order_line", label: "0..*", fk: true },
+        { from: "dim_product", to: "fct_order_line", label: "0..*", fk: true },
+        { from: "stg_customer", to: "dim_customer", label: "SCD2", fk: false },
+      ];
+
+      const ROW_H = 21, HEAD_H = 36, RULE_H = 3, ADD_H = 25, W = 232;
+
+      function boxHeight(t) {
+        return RULE_H + HEAD_H + (t.keys.length * ROW_H + 8) + (t.rows.length * ROW_H + 8) + (t.selected ? ADD_H : 0);
+      }
+
+      function rowHtml([name, type, pii, fk]) {
+        return `<div class="row">
+          <span class="row__key">${fk ? '<svg class="icon" style="width:11px;height:11px"><use href="#i-link"/></svg>' : ""}</span>
+          <span class="row__name">${name}</span>
+          ${pii ? `<span class="row__pii">${pii}</span>` : ""}
+          <span class="row__type">${type}</span>
+        </div>`;
+      }
+
+      function keyHtml([name, type]) {
+        return `<div class="row">
+          <span class="row__key"><svg class="icon" style="width:11px;height:11px"><use href="#i-key"/></svg></span>
+          <span class="row__name req">${name}</span>
+          <span class="row__type">${type}</span>
+        </div>`;
+      }
+
+      function buildCanvas(host) {
+        const inner = document.createElement("div");
+        inner.className = "canvas__inner";
+
+        const svgNs = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(svgNs, "svg");
+        svg.setAttribute("class", "wires");
+
+        const at = Object.fromEntries(TABLES.map((t) => [t.name, t]));
+        for (const wire of WIRES) {
+          const a = at[wire.from], b = at[wire.to];
+          const x1 = a.x + W, y1 = a.y + RULE_H + HEAD_H / 2 + 10;
+          const x2 = b.x, y2 = b.y + RULE_H + HEAD_H / 2 + 10;
+          const mid = (x1 + x2) / 2;
+
+          const path = document.createElementNS(svgNs, "path");
+          path.setAttribute("d", `M${x1} ${y1} C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`);
+          if (wire.fk) path.setAttribute("class", "fk");
+          svg.appendChild(path);
+
+          // Crow's-foot: three short strokes at the many end.
+          if (wire.fk) {
+            const foot = document.createElementNS(svgNs, "path");
+            foot.setAttribute("d", `M${x2 - 9} ${y2 - 5} L${x2} ${y2} L${x2 - 9} ${y2 + 5} M${x2 - 9} ${y2} L${x2} ${y2}`);
+            foot.setAttribute("class", "fk");
+            foot.setAttribute("stroke-dasharray", "none");
+            svg.appendChild(foot);
+          }
+
+          const label = document.createElementNS(svgNs, "text");
+          label.setAttribute("x", mid);
+          label.setAttribute("y", (y1 + y2) / 2 - 6);
+          label.setAttribute("text-anchor", "middle");
+          label.textContent = wire.label;
+          svg.appendChild(label);
+        }
+        inner.appendChild(svg);
+
+        for (const t of TABLES) {
+          const box = document.createElement("div");
+          box.className = `box box--${t.kind}${t.selected ? " sel" : ""}`;
+          box.style.left = `${t.x}px`;
+          box.style.top = `${t.y}px`;
+          box.innerHTML = `
+            <div class="box__rule"></div>
+            <div class="box__head">
+              <svg class="icon icon--sm" style="color: var(--n6)"><use href="#i-table"/></svg>
+              <span class="box__title">${t.name}</span>
+              <span class="box__tag">${t.tag}</span>
+            </div>
+            <div class="box__keys">${t.keys.map(keyHtml).join("")}</div>
+            <div class="box__rows">${t.rows.map(rowHtml).join("")}</div>
+            ${t.selected ? `<button class="box__add"><svg class="icon" style="width:11px;height:11px"><use href="#i-plus"/></svg> Add column</button>` : ""}`;
+          inner.appendChild(box);
+        }
+
+        const note = document.createElement("div");
+        note.className = "note";
+        note.style.left = "660px";
+        note.style.top = "470px";
+        note.textContent =
+          "Grain: one row per product per order. Late arrivals are reprocessed for 3 days.";
+        inner.appendChild(note);
+
+        host.insertBefore(inner, host.firstChild);
+        void boxHeight;
+      }
+
+      function buildTree(host) {
+        const models = [
+          { name: "retail_concept", tier: "conceptual", count: 8 },
+          { name: "retail_logical", tier: "logical", count: 10 },
+          { name: "retail_warehouse", tier: "physical", count: 11, open: true },
+        ];
+        const children = [
+          ["dim_customer", "table"], ["dim_product", "table"],
+          ["fct_order_line", "table"], ["stg_customer", "table"],
+          ["load_dim_customer", "mapping"],
+        ];
+
+        host.innerHTML =
+          `<div class="tree">
+            <div class="tree__label">Models</div>
+            ${models
+              .map(
+                (m) => `<button class="tree__row${m.open ? " on" : ""}">
+                  <svg class="icon icon--sm" style="color: var(--n6)"><use href="#i-chev-${m.open ? "d" : "r"}"/></svg>
+                  <span class="dot" style="background: var(--${m.tier})"></span>
+                  ${m.name}<span class="count">${m.count}</span>
+                </button>
+                ${m.open ? children.map(([n, k]) => `<button class="tree__row child"><svg class="icon icon--sm" style="color: var(--n5)"><use href="#i-${k === "table" ? "table" : "flow"}"/></svg>${n}</button>`).join("") : ""}`,
+              )
+              .join("")}
+            <div class="tree__label">Shared</div>
+            <button class="tree__row child"><svg class="icon icon--sm" style="color: var(--n5)"><use href="#i-grid"/></svg>domains<span class="count">5</span></button>
+            <button class="tree__row child"><svg class="icon icon--sm" style="color: var(--n5)"><use href="#i-shield"/></svg>naming standards<span class="count">1</span></button>
+          </div>`;
+      }
+
+      document.querySelectorAll("[data-canvas]").forEach(buildCanvas);
+      document.querySelectorAll("[data-tree]").forEach(buildTree);
+
+      document.querySelectorAll(".switcher [data-view]").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".view").forEach((v) => v.classList.remove("on"));
+          document.getElementById(button.dataset.view).classList.add("on");
+          document.querySelectorAll(".switcher [data-view]").forEach((b) => b.classList.remove("on"));
+          button.classList.add("on");
+        });
+      });
+
+      const themeButton = document.querySelector("[data-theme]");
+      themeButton.addEventListener("click", () => {
+        const dark = document.documentElement.dataset.theme === "dark";
+        document.documentElement.dataset.theme = dark ? "light" : "dark";
+        themeButton.textContent = dark ? "Dark" : "Light";
+      });
+    </script>
+  </body>
+</html>

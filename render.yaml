@@ -1,0 +1,302 @@
+# Two services, because they answer two different questions.
+#
+#   strata-demo  the hosted product. Sign in with GitHub, your repository is your workspace.
+#   strata-try   the anonymous trial. No account, no signup, a scratch workspace per visitor.
+#
+# **Why both exist.** Turning the hosted product on put a sign-in wall in front of the thing that
+# used to let a stranger click a link and be modelling ten seconds later. That trial is the best
+# demonstration this product has, so it gets its own address rather than being replaced.
+#
+# **A service with no environment variables is neither of these.** `STRATA_AUTH` disables accounts
+# only when it is exactly `off`, tenant mode is off unless `STRATA_TENANT_DIR` is set, and
+# `STRATA_FEATURES` unset means every feature is enabled. Deploying this file with the values
+# stripped out produces a single-workspace instance that demands an account and has integrations
+# switched on, which is the opposite of a trial in all three respects.
+#
+# The hosted instance of strata, on Render's free tier.
+#
+# **Nothing here is backed up, and that is deliberate rather than a compromise.** A workspace
+# is a clone of the customer's own GitHub repository, so the disk holds a working copy and
+# nothing that is not already somewhere safer. The free instance sleeps after 15 minutes of no
+# traffic and loses its disk when it wakes; the cost of that is a re-clone and everyone being
+# signed out, not lost work.
+#
+# **The GitHub OAuth credentials are not in this file.** They live in a Render environment
+# group, because a client secret does not belong in a repository. See docs/SELF-HOSTING.md for
+# which variables that group has to carry.
+#
+# Note that a variable set on the service, including everything below, takes precedence over
+# the same variable coming from an environment group. That is why `STRATA_AUTH` is corrected
+# here rather than left for the group to override, which it could not do.
+#
+# To deploy: push this file, then in Render choose New, then Blueprint, and point it at the
+# repository. Render reads this and creates the service.
+#
+# For a real instance that keeps real models, do not use this file. Use
+# docs/self-hosting/index.html, or the Helm chart in deploy/helm/strata.
+
+services:
+  - type: web
+    name: strata-demo
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+
+    # `numInstances` is deliberately absent. Scaling is not configurable on the free instance
+    # type, and setting it there can fail blueprint validation, which would turn the very first
+    # deploy into a puzzle. Free gives you one instance regardless.
+    #
+    # That default happens to be exactly what strata requires: the git working tree is shared mutable
+    # state, so two containers writing one workspace corrupt it. **If you move this to a paid
+    # plan, set numInstances to 1 explicitly and never raise it.**
+
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: PORT
+        value: 4000
+
+      # ---------------------------------------------------------------- the trial shape
+
+      # One workspace per visitor, keyed by a signed cookie. Without this, the first visitor
+      # would be editing the same model as the second, which is not a trial but a public wiki.
+      - key: STRATA_TENANT_DIR
+        value: /tmp/strata-tenants
+
+      # Named explicitly rather than left to default under /app, so it is obvious that instance
+      # state lives somewhere disposable. On restart the session signing secret is regenerated,
+      # which invalidates every workspace cookie and hands returning visitors a fresh workspace.
+      # On a demo that is acceptable. On a real instance it would sign everyone out, which is
+      # why the self-hosting guide insists on a persistent volume for this path.
+      - key: STRATA_DATA_DIR
+        value: /tmp/strata-data
+
+      # Nothing to seed in hosted mode: a workspace is a clone of the customer's own
+      # repository, so there is no empty directory to fill. Left here, commented, because it is
+      # the one line to restore if this service ever goes back to being the anonymous trial.
+      #
+      # - key: STRATA_TENANT_SEED
+      #   value: /app/examples/quickstart
+
+      # Two hours. Long enough to look around properly, short enough that a free instance with
+      # a small disk does not fill up. Expiry sweeps hourly.
+      - key: STRATA_TENANT_TTL_MS
+        value: 7200000
+
+      # ---------------------------------------------------------------- what is available
+
+      # **The full list, and on this service that is now the correct setting.**
+      #
+      # It used to be `""`, copied from the trial, and that single line was why the hosted
+      # product looked empty: integrations, skills and BigQuery were invisible to paying
+      # customers, and no amount of configuring them inside the app could bring them back. The
+      # value was right for a service full of anonymous strangers and wrong for this one, which
+      # is not, and one variable could not tell the two apart.
+      #
+      # It can be the full list now because the refusal moved into the code. `featuresFor` gives
+      # an anonymous caller nothing whatever this says, so the SSRF concern that motivated `""`
+      # is handled where it cannot be undone by editing this file. What this list means here is
+      # the ceiling for people who have *signed in*, and everyone who reaches a feature route on
+      # this service has done so: cloud mode refuses every model route until GitHub has confirmed
+      # their access to a repository.
+      #
+      # The features run on the tenant's own credentials, never ours. There is no operator model
+      # key or service account on this service, and `operatorEnv` would ignore one if there were.
+      - key: STRATA_FEATURES
+        value: integrations,skills,bigquery
+
+      # ---------------------------------------------------------------- identity
+
+      # **On, and it has to be.**
+      #
+      # This service runs hosted sign-in, where each person's role comes from their GitHub
+      # permission on the repository they opened. `requireRole` short-circuits to allow when
+      # auth is off, so `off` here would give somebody with read-only access to a repository
+      # full write access to it. The server refuses to start on that combination rather than
+      # run with the hole open, so getting this wrong is a failed deploy, not a silent problem.
+      #
+      # It was `off` while this service was the anonymous trial, where every visitor was alone
+      # in a scratch directory and there was nothing of anybody else's to reach. That stopped
+      # being true the moment sign-in arrived.
+      - key: STRATA_AUTH
+        value: "on"
+
+      # ---------------------------------------------------------------- the GitHub OAuth app
+
+      # **Declared here, not left to an environment group, because forgetting one is silent.**
+      #
+      # Cloud mode needs all three of these plus STRATA_TENANT_DIR above. Miss any single one and
+      # `CLOUD_ENABLED` is false, the whole mode goes inert, and the service comes up as an
+      # ordinary self-hosted instance showing a local sign-in form. Nothing errors. That is
+      # exactly what happened to the live deployment: `/api/cloud/me` reported `cloud: false`
+      # while the blueprint and the docs both described a hosted product, and the visible symptom
+      # was a template workspace and missing integrations, neither of which is where the fault was.
+      #
+      # `sync: false` makes Render prompt for each value at deploy time and keeps it out of git.
+      # A prompt is impossible to forget in the way an environment group is.
+      #
+      # STRATA_CLOUD_BASE_URL is the service's own public URL, and the OAuth callback registered
+      # at GitHub must be exactly `<that>/api/cloud/callback`: https, no trailing slash.
+      - key: STRATA_CLOUD_CLIENT_ID
+        sync: false
+      - key: STRATA_CLOUD_CLIENT_SECRET
+        sync: false
+      - key: STRATA_CLOUD_BASE_URL
+        sync: false
+
+      # ---------------------------------------------------------------- the administrator
+
+      # **Seeded from configuration, because the disk does not survive.**
+      #
+      # `STRATA_DATA_DIR` is on `/tmp`, which the free plan wipes on every restart and redeploy.
+      # Without a seed, an account created through the browser is gone the next time the instance
+      # wakes, and the person who made it is shown first-run setup again.
+      #
+      # It is also a takeover. An empty data directory means `needsSetup` is true again, so the
+      # next person to reach the URL becomes the administrator of somebody else's instance. The
+      # seed closes that window entirely: the account exists before the listener opens.
+      #
+      # `sync: false` means Render prompts for these at deploy time rather than reading them from
+      # here, so neither value is committed. Generate the hash with:
+      #
+      #   docker run --rm -it ghcr.io/rk-chavali/strata:latest node apps/server/dist/hash-password.js
+      #
+      # A scrypt hash is safe to paste into a settings screen: it cannot be replayed anywhere else
+      # and cannot be turned back into the password.
+      - key: STRATA_ADMIN_USERNAME
+        sync: false
+      - key: STRATA_ADMIN_PASSWORD_HASH
+        sync: false
+
+      # ---------------------------------------------------------------- being behind a proxy
+
+      # Render terminates TLS, so cookies must be Secure or a browser will drop them.
+      - key: STRATA_COOKIE_SECURE
+        value: "true"
+
+      # Render sits in front of the container, so X-Forwarded-For is the real client address.
+      # Without this every visitor would share one throttle bucket.
+      - key: STRATA_TRUST_PROXY
+        value: "true"
+
+      # ---------------------------------------------------------------- housekeeping
+
+      # No remote to watch, so polling would be a request a minute to nowhere.
+      - key: STRATA_WATCH_INTERVAL_MS
+        value: 0
+
+      # Free instances are quiet enough that a line per request is useful rather than noise,
+      # and it is the only way to see what a demo visitor actually tried.
+      - key: STRATA_LOG_REQUESTS
+        value: "true"
+
+      # ---------------------------------------------------------------- the waking page
+
+      # The static page that fronts this demo needs to read /api/health across origins, so it can
+      # tell the visitor when the container has finished waking. Without this the browser refuses
+      # to let it read the response and it falls back to a blind probe, which still works but
+      # cannot distinguish "awake" from "answered with an error".
+      #
+      # The Cloudflare Worker serving docs/, which is where `try.html` lives.
+      #
+      # This is what lets that page read the health response properly. Without it the browser
+      # blocks the read and try.html falls back to a blind no-cors probe: it still detects that
+      # the demo woke up, but cannot tell a healthy server from one returning errors.
+      #
+      # No trailing slash. Comma separated if you add a custom domain later.
+      - key: STRATA_ALLOWED_ORIGINS
+        value: https://strata-docs.chavali-r.workers.dev
+
+
+  # ------------------------------------------------------------------ the anonymous trial
+
+  - type: web
+    name: strata-try
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: PORT
+        value: 4000
+
+      # ---------------------------------------------------------------- what makes it a trial
+
+      # One workspace per visitor, keyed by a signed cookie. Without this the first visitor and
+      # the second edit the same model, which is not a trial but a public wiki.
+      - key: STRATA_TENANT_DIR
+        value: /tmp/strata-tenants
+
+      # Every visitor starts from a copy of the example, so the first screen has something on it.
+      # An empty canvas tells a stranger nothing about what strata does.
+      - key: STRATA_TENANT_SEED
+        value: /app/examples/quickstart
+
+      # Two hours. Long enough to look around properly, short enough that a free instance with a
+      # small disk does not fill up. Expiry is on modification time, so nobody is cut off mid-session.
+      - key: STRATA_TENANT_TTL_MS
+        value: 7200000
+
+      # **No accounts, and this is the line that makes it a trial.** Asking a stranger to sign up
+      # before they can see anything is how you get no visitors.
+      #
+      # Safe only because of the two settings below: with no accounts everyone is effectively an
+      # administrator inside their own scratch workspace, so the blast radius is decided entirely
+      # by what the deployment permits at all.
+      - key: STRATA_AUTH
+        value: "off"
+
+      # **An empty list means nothing is enabled**, and on this service that is the most important
+      # line in the file.
+      #
+      # Integrations let whoever configures them make the server request a URL of their choosing,
+      # and here that is every stranger on the internet pointed at Render's network. bigquery is
+      # off because a visitor has no GCP project. skills is off because agent skills would run on
+      # our API key. Unset would mean all three on.
+      - key: STRATA_FEATURES
+        value: ""
+
+      # Disposable on purpose. A restart takes the scratch workspaces with it, which is the
+      # intended behaviour here rather than a compromise.
+      - key: STRATA_DATA_DIR
+        value: /tmp/strata-data
+
+      # ---------------------------------------------------------------- behind Render's proxy
+
+      - key: STRATA_COOKIE_SECURE
+        value: "true"
+
+      - key: STRATA_TRUST_PROXY
+        value: "true"
+
+      - key: STRATA_WATCH_INTERVAL_MS
+        value: 0
+
+      - key: STRATA_LOG_REQUESTS
+        value: "true"
+
+      # The waking page on the docs site reads /api/health across origins to tell a visitor when
+      # the container has finished starting.
+      - key: STRATA_ALLOWED_ORIGINS
+        value: https://strata-docs.chavali-r.workers.dev
+
+# Render sets RENDER_GIT_COMMIT on every deploy and the server reads it directly, so there is no
+# STRATA_COMMIT entry here. /api/health/detail reports the live build either way.
+# ---------------------------------------------------------------- what this deliberately omits
+#
+# **No disk.** Render's free plan has none, and paying for one here would be paying to keep
+# scratch workspaces nobody wants. `/tmp` is enough, and losing it on a restart is the intended
+# behaviour rather than a compromise.
+#
+# **The administrator is seeded, on strata-demo only.** That service has accounts, and `/tmp` does
+# not survive a restart, so without a seed every wake would erase the administrator and reopen
+# first-run setup to whoever arrived next. strata-try needs no seed because it has no accounts at
+# all: `STRATA_AUTH=off` means everyone is alone in their own scratch workspace and there is
+# nothing to take over.
+#
+# **No GITHUB_TOKEN.** A demo that could open pull requests would be opening them against a
+# repository somebody else owns, using our credentials.

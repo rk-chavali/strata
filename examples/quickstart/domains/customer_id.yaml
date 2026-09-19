@@ -1,0 +1,7 @@
+id: dom_customer_id
+kind: domain
+name: customer_id
+description: The identifier the shop issues to a customer. Stable for the life of the account.
+logicalType: string
+physicalType: STRING
+nullable: false

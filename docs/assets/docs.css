@@ -1,0 +1,714 @@
+/*
+  Documentation styles.
+  One stylesheet, no build step, no framework. The docs are static HTML you can open from
+  disk, which matters for an air-gapped customer reading them off a checkout.
+*/
+
+:root {
+  --paper: #fbfcfe;
+  --surface: #ffffff;
+  --surface-2: #f1f4f9;
+  --surface-3: #e8ecf4;
+  --rule: #dde2ec;
+  --rule-soft: #eaeef5;
+  --ink: #10151f;
+  --ink-2: #3c4557;
+  --ink-3: #6a7286;
+
+  --accent: #21357a;
+  --accent-2: #3d55b0;
+  --accent-wash: #eaedf8;
+
+  --good: #1c6a4f;
+  --good-wash: #e7f3ee;
+  --warn: #96540f;
+  --warn-wash: #fbf1e3;
+  --stop: #a61f26;
+  --stop-wash: #fbecec;
+
+  --code-bg: #f4f6fb;
+  --shadow: 0 1px 2px rgba(16, 21, 31, 0.05), 0 10px 30px -22px rgba(16, 21, 31, 0.35);
+
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --nav-width: 264px;
+  --content-max: 76ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0c1016;
+    --surface: #131822;
+    --surface-2: #1a2030;
+    --surface-3: #222939;
+    --rule: #29304180;
+    --rule: #293041;
+    --rule-soft: #1f2634;
+    --ink: #eceff6;
+    --ink-2: #b2b9cb;
+    --ink-3: #828b9f;
+    --accent: #93a6ea;
+    --accent-2: #b3c1f3;
+    --accent-wash: #1b2340;
+    --good: #6ec7a2;
+    --good-wash: #11271e;
+    --warn: #e6ab63;
+    --warn-wash: #302113;
+    --stop: #f0898f;
+    --stop-wash: #32181a;
+    --code-bg: #161c27;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -22px rgba(0, 0, 0, 0.8);
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #0c1016;
+  --surface: #131822;
+  --surface-2: #1a2030;
+  --surface-3: #222939;
+  --rule: #293041;
+  --rule-soft: #1f2634;
+  --ink: #eceff6;
+  --ink-2: #b2b9cb;
+  --ink-3: #828b9f;
+  --accent: #93a6ea;
+  --accent-2: #b3c1f3;
+  --accent-wash: #1b2340;
+  --good: #6ec7a2;
+  --good-wash: #11271e;
+  --warn: #e6ab63;
+  --warn-wash: #302113;
+  --stop: #f0898f;
+  --stop-wash: #32181a;
+  --code-bg: #161c27;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -22px rgba(0, 0, 0, 0.8);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 90px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------- masthead */
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 60px;
+  padding: 0 24px;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+
+/*
+  The mark sits with the wordmark, so the two are one lockup rather than two things near
+  each other. `center` rather than `baseline`: a square has no baseline to sit on, and
+  aligning it to one drops it visibly below the text.
+*/
+.brand__mark {
+  width: 18px;
+  height: 18px;
+  fill: var(--accent);
+  flex: none;
+  align-self: center;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.brand span {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+
+.top nav {
+  margin-left: auto;
+  display: flex;
+  gap: 22px;
+  font-size: 14px;
+}
+
+.top nav a {
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.top nav a:hover,
+.top nav a:focus-visible {
+  color: var(--accent);
+}
+
+/* ---------------------------------------------------------------- shell */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--nav-width) minmax(0, 1fr);
+  gap: 48px;
+  max-width: 1240px;
+  margin: 0 auto;
+  /*
+    48px at the bottom, not 120.
+
+    The previous value left a screen-sized void under the previous/next links on every page,
+    which reads as a page that failed to load the rest of itself rather than as breathing room.
+    The links already carry 48px of margin and a rule above them, so the space below only has to
+    stop the last card sitting flush against the viewport edge.
+  */
+  padding: 0 24px 48px;
+  align-items: start;
+}
+
+.side {
+  position: sticky;
+  top: 84px;
+  padding-top: 40px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
+.side h3 {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 26px 0 8px;
+}
+
+.side h3:first-child {
+  margin-top: 0;
+}
+
+.side a {
+  display: block;
+  padding: 5px 12px;
+  margin-left: -12px;
+  border-radius: 5px;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+
+.side a:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.side a[aria-current="page"] {
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------- article */
+
+main {
+  padding-top: 40px;
+  min-width: 0;
+}
+
+.eyebrow {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 11.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 12px;
+}
+
+h1 {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: clamp(32px, 5vw, 46px);
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  margin: 0 0 16px;
+  text-wrap: balance;
+}
+
+.lede {
+  font-size: 19px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-width: 64ch;
+  margin: 0 0 40px;
+}
+
+h2 {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 27px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 56px 0 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  text-wrap: balance;
+}
+
+h3 {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 20px;
+  margin: 34px 0 10px;
+  text-wrap: balance;
+}
+
+h4 {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 16px;
+  margin: 26px 0 8px;
+  color: var(--ink-2);
+}
+
+p,
+ul,
+ol {
+  max-width: var(--content-max);
+}
+
+p {
+  margin: 0 0 16px;
+}
+
+ul,
+ol {
+  margin: 0 0 18px;
+  padding-left: 22px;
+}
+
+li {
+  margin-bottom: 7px;
+}
+
+li > ul,
+li > ol {
+  margin-top: 7px;
+  margin-bottom: 4px;
+}
+
+strong {
+  font-weight: 600;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+a:focus-visible,
+.side a:focus-visible,
+.top nav a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ---------------------------------------------------------------- code */
+
+code {
+  font-family: var(--mono);
+  font-size: 0.87em;
+  background: var(--code-bg);
+  border: 1px solid var(--rule-soft);
+  border-radius: 3px;
+  padding: 0.09em 0.35em;
+  word-break: break-word;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 16px 18px;
+  overflow-x: auto;
+  margin: 0 0 18px;
+  max-width: 100%;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.filename {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 7px 14px;
+  display: inline-block;
+  margin-bottom: 0;
+}
+
+.filename + pre {
+  border-radius: 0 6px 6px 6px;
+  margin-top: 0;
+}
+
+/* ---------------------------------------------------------------- steps */
+
+.steps {
+  counter-reset: step;
+  list-style: none;
+  padding: 0;
+  max-width: none;
+}
+
+.steps > li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 46px;
+  padding-bottom: 30px;
+  margin-bottom: 0;
+  border-left: 1px solid var(--rule);
+  margin-left: 14px;
+}
+
+.steps > li:last-child {
+  border-left-color: transparent;
+  padding-bottom: 8px;
+}
+
+.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: -15px;
+  top: -2px;
+  width: 29px;
+  height: 29px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--paper);
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 14px;
+  display: grid;
+  place-items: center;
+}
+
+:root[data-theme="dark"] .steps > li::before,
+:root:not([data-theme="light"]) .steps > li::before {
+  color: #0c1016;
+}
+
+.steps h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+/* ---------------------------------------------------------------- callouts */
+
+.note,
+.warn,
+.stop {
+  border-radius: 6px;
+  padding: 16px 20px;
+  margin: 0 0 22px;
+  border: 1px solid var(--rule);
+  border-left-width: 3px;
+  max-width: var(--content-max);
+}
+
+.note {
+  background: var(--accent-wash);
+  border-left-color: var(--accent);
+}
+
+.warn {
+  background: var(--warn-wash);
+  border-left-color: var(--warn);
+}
+
+.stop {
+  background: var(--stop-wash);
+  border-left-color: var(--stop);
+}
+
+.note > :last-child,
+.warn > :last-child,
+.stop > :last-child {
+  margin-bottom: 0;
+}
+
+.note b,
+.warn b,
+.stop b {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.note b {
+  color: var(--accent);
+}
+
+.warn b {
+  color: var(--warn);
+}
+
+.stop b {
+  color: var(--stop);
+}
+
+/* ---------------------------------------------------------------- tables */
+
+.tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  margin: 0 0 22px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 520px;
+  background: var(--surface);
+}
+
+th {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-align: left;
+  padding: 12px 15px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+td {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--rule-soft);
+  vertical-align: top;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+td:first-child {
+  color: var(--ink);
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+td code,
+th code {
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- cards */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+  max-width: none;
+}
+
+.cards li {
+  margin: 0;
+}
+
+.cards a {
+  display: block;
+  height: 100%;
+  padding: 20px 22px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+}
+
+.cards a:hover {
+  border-color: var(--accent);
+}
+
+.cards strong {
+  display: block;
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink);
+  margin-bottom: 5px;
+}
+
+.cards span {
+  display: block;
+  color: var(--ink-2);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------- misc */
+
+.pill {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.pill-good {
+  background: var(--good-wash);
+  color: var(--good);
+}
+
+.pill-warn {
+  background: var(--warn-wash);
+  color: var(--warn);
+}
+
+.pill-stop {
+  background: var(--stop-wash);
+  color: var(--stop);
+}
+
+.foot {
+  border-top: 1px solid var(--rule);
+  margin-top: 72px;
+  padding-top: 22px;
+  font-size: 14px;
+  color: var(--ink-3);
+}
+
+.nextprev {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 48px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+}
+
+.nextprev a {
+  flex: 1 1 220px;
+  padding: 14px 18px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  text-decoration: none;
+  background: var(--surface);
+}
+
+.nextprev a:hover {
+  border-color: var(--accent);
+}
+
+.nextprev small {
+  display: block;
+  font-family: var(--cond);
+  font-size: 11px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 3px;
+}
+
+.nextprev strong {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 16.5px;
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------- responsive */
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .side {
+    position: static;
+    max-height: none;
+    padding: 24px 0 8px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 12px;
+  }
+
+  .side a {
+    display: inline-block;
+    margin-left: 0;
+    margin-right: 4px;
+  }
+
+  .top nav {
+    gap: 14px;
+    font-size: 13px;
+  }
+}

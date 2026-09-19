@@ -1,0 +1,15 @@
+id: rel_cpt_customer_order
+kind: relationship
+name: customer_places_order
+model: shop_concept
+tier: conceptual
+parent:
+  cardinality: exactly-one
+  ref: Customer
+  verbPhrase: places
+child:
+  cardinality: zero-or-more
+  ref: Order
+  verbPhrase: is placed by
+assert: true
+identifying: false

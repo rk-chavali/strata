@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    // Off, and it is a decision rather than an oversight.
+    //
+    // Turning it on produces 9 errors. Eight are `{ model: string | undefined }` passed where
+    // the target declares `model?: string`, which would mean threading conditional spreads
+    // through ResolveContext and its callers. The ninth is zod v3's own ZodLazy inference,
+    // which no amount of local rewriting fixes.
+    //
+    // Worth revisiting with the zod v4 migration, when the ninth one goes away on its own.
+    "exactOptionalPropertyTypes": false,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

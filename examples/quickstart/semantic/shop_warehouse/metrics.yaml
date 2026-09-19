@@ -1,0 +1,36 @@
+# Metrics for shop_warehouse.
+#
+# Written by hand, and `strata generate semantic` never touches this file.
+# That split is the right one: a schema says an order has a total, and only a
+# person can say that the number the business calls revenue is the sum of it
+# over orders that were not cancelled.
+
+version: 0.2.0.dev0
+semantic_model:
+  - name: shop_warehouse
+    metrics:
+      - name: order_revenue
+        description: >
+          Total value of orders placed. Cancelled orders are excluded, because
+          the business does not count money it refunded.
+        datatype: Number
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: SUM(CASE WHEN fct_order.order_status = 'cancelled' THEN 0 ELSE fct_order.order_total END)
+
+      - name: order_count
+        description: How many orders were placed, including cancelled ones.
+        datatype: Number
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: COUNT(DISTINCT fct_order.order_id)
+
+      - name: largest_order
+        description: The single biggest order. Survives being joined, unlike a sum.
+        datatype: Number
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: MAX(fct_order.order_total)

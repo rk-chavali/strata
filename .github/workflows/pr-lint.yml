@@ -1,0 +1,68 @@
+name: PR lint
+
+# Checks the pull request title, because the title becomes the commit message.
+#
+# Squash-merge means the PR title is what lands on main verbatim, so it is the only place
+# worth enforcing the commit convention. Enforcing it on individual commits inside a branch
+# would reject the "wip" commits everybody writes while working, for no benefit.
+#
+# Conventional Commits is not enforced for tidiness. release-please reads these prefixes to
+# work out the next version number and to write CHANGELOG.md, so a title it cannot parse
+# produces a release note that silently omits the change.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    name: Conventional Commits title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # Hand-written rather than a third-party action, for the same reason the tar writer and
+      # the MCP transport here are hand-written: this is a regex, and an action would be a
+      # supply-chain dependency with write access to nothing but still one more thing to pin,
+      # audit and update.
+      - name: Check the title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          # Scopes are the eight workspaces plus the cross-cutting ones. Optional: a change
+          # that genuinely spans the tree should not have to pick a misleading scope.
+          TYPES='feat|fix|docs|test|refactor|perf|build|ci|chore|revert'
+          SCOPES='server|web|cli|ddl|import|metamodel|query|storage|docs|deploy|ci|deps'
+
+          if printf '%s' "$TITLE" | grep -qE "^($TYPES)(\(($SCOPES)\))?!?: .+"; then
+            echo "OK: $TITLE"
+            exit 0
+          fi
+
+          # A failure message that says what to type. "Does not match regex" sends the
+          # contributor to read this file, which is a worse use of their afternoon.
+          cat <<MSG
+          ::error::PR title does not follow Conventional Commits.
+
+          Got:
+            $TITLE
+
+          Expected:
+            <type>(<scope>): <description>
+
+          Types:  $TYPES
+          Scopes: $SCOPES   (optional)
+
+          Examples:
+            fix(server): reject a workspace path that escapes the root
+            feat(import): read erwin logical models
+            docs: explain the single-replica constraint
+            feat(metamodel)!: drop the v1 domain shape
+
+          A trailing "!" before the colon marks a breaking change and bumps the major version.
+          MSG
+          exit 1

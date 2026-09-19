@@ -1,0 +1,418 @@
+/*
+ * Design tokens.
+ *
+ * Two layers, and the split is the whole point.
+ *
+ *   1. **Primitives**, the raw ramps. `--n0`..`--n9`, `--blue-6`, and so on. These name
+ *      a colour, not a job. Components must never reference them directly.
+ *   2. **Semantics**, what a thing is *for*. `--bg-surface`, `--text-2`,
+ *      `--border-strong`. Components only ever use these.
+ *
+ * Why it matters: the previous stylesheet had components reaching straight into the
+ * ramp, so `--n2` meant "panel background" in one rule, "hover state" in the next and
+ * "disabled fill" in a third. Retheming meant auditing 1787 lines to work out which
+ * `--n2` meant which, and dark mode drifted because each site was fixed by hand.
+ *
+ * Now the dark theme reassigns semantics in one block. A component written against
+ * `--bg-surface` is correct in both themes by construction, and there is exactly one
+ * place to look when something is the wrong colour.
+ *
+ * Non-negotiables, because breaking them is what made the earlier attempt read as
+ * amateurish:
+ *   - every gap and pad comes from the 4px scale; no arbitrary values
+ *   - six type sizes, nothing in between
+ *   - icons are 16px SVG, 1.5 stroke, currentColor. No emoji, ever
+ *   - one neutral ramp plus one accent; colour carries meaning, not decoration
+ *   - borders are 1px and always a `--border-*` token
+ */
+
+:root {
+  /* ------------------------------------------------------------ space */
+
+  /*
+   * A 4px grid with two half-steps at the bottom, where optical alignment genuinely
+   * needs finer control than 4px (icon nudges, 1px borders inside padded rows).
+   */
+  --s1: 2px;
+  --s2: 4px;
+  --s3: 6px;
+  --s4: 8px;
+  --s5: 12px;
+  --s6: 16px;
+  --s7: 20px;
+  --s8: 24px;
+  --s9: 32px;
+  --s10: 40px;
+  --s11: 48px;
+  --s12: 64px;
+
+  /* ------------------------------------------------------------ type */
+
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+  --fs-2xl: 22px;
+  --fs-3xl: 28px;
+
+  --lh-tight: 1.25;
+  --lh-normal: 1.45;
+  --lh-loose: 1.6;
+
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* Negative tracking on display sizes only; body text at 13px needs none. */
+  --track-tight: -0.011em;
+  --track-tighter: -0.019em;
+
+  --font: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, Consolas, monospace;
+
+  /* ------------------------------------------------------------ radius */
+
+  --r-xs: 3px;
+  --r-sm: 4px;
+  --r: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+  --r-full: 999px;
+
+  /* ------------------------------------------------------------ primitives */
+
+  --n0: #ffffff;
+  --n1: #fafbfc;
+  --n2: #f4f6f8;
+  --n3: #eaedf1;
+  --n4: #dde2e8;
+  --n5: #c3cbd5;
+  --n6: #8b96a5;
+  --n7: #5a6472;
+  --n8: #333c48;
+  --n9: #1a2029;
+  --n10: #0d1218;
+
+  --blue-1: #eef4ff;
+  --blue-2: #d8e6ff;
+  --blue-3: #bfd4fe;
+  --blue-5: #3b82f6;
+  --blue-6: #2563eb;
+  --blue-7: #1d4ed8;
+
+  --green-1: #e8f5ee;
+  --green-3: #a7dcc0;
+  --green-6: #167c4a;
+  --green-7: #0f6039;
+
+  --amber-1: #fdf4e3;
+  --amber-3: #f0dfa8;
+  --amber-6: #9a6200;
+  --amber-7: #7c4e00;
+
+  --red-1: #fdeeed;
+  --red-3: #f3bdb9;
+  --red-6: #c0332b;
+  --red-7: #9c2820;
+
+  --purple-1: #f3eeff;
+  --purple-6: #6d38d4;
+
+  /* ------------------------------------------------------------ semantics: surface */
+
+  /*
+   * Four levels, ordered by how far forward a thing sits.
+   *
+   * `sunken` < `canvas` < `surface` < `raised` < `overlay`. A component picks the level
+   * that matches its role and gets a coherent stack for free, which is what stops the
+   * "grey box on a grey box on a grey box" problem the old stylesheet had.
+   */
+  --bg-sunken: var(--n2);
+  --bg-canvas: var(--n1);
+  --bg-surface: var(--n0);
+  --bg-raised: var(--n0);
+  --bg-overlay: var(--n0);
+  --bg-inset: var(--n2);
+
+  --bg-hover: var(--n2);
+  --bg-active: var(--n3);
+  --bg-selected: var(--blue-1);
+  --bg-disabled: var(--n2);
+
+  /* Dimming behind a modal. Deliberately not pure black, it greys rather than voids. */
+  --bg-scrim: rgb(26 32 41 / 44%);
+
+  /* ------------------------------------------------------------ semantics: text */
+
+  /* Four weights of emphasis, strongest first. */
+  --text-1: var(--n9);
+  --text-2: var(--n8);
+  --text-3: var(--n7);
+  --text-4: var(--n6);
+  --text-disabled: var(--n5);
+  --text-on-accent: #ffffff;
+  --text-on-solid: var(--n0);
+
+  /* ------------------------------------------------------------ semantics: border */
+
+  --border-subtle: var(--n3);
+  --border: var(--n4);
+  --border-strong: var(--n5);
+  --border-accent: var(--blue-6);
+
+  /* ------------------------------------------------------------ semantics: accent */
+
+  --accent: var(--blue-6);
+  --accent-hover: var(--blue-7);
+  --accent-soft: var(--blue-1);
+  --accent-soft-hover: var(--blue-2);
+  --accent-line: var(--blue-3);
+  --accent-on: #ffffff;
+  --accent-text: var(--blue-7);
+
+  /* ------------------------------------------------------------ semantics: status */
+
+  --ok: var(--green-6);
+  --ok-soft: var(--green-1);
+  --ok-line: var(--green-3);
+  --ok-text: var(--green-7);
+
+  --warn: var(--amber-6);
+  --warn-soft: var(--amber-1);
+  --warn-line: var(--amber-3);
+  --warn-text: var(--amber-7);
+
+  --err: var(--red-6);
+  --err-soft: var(--red-1);
+  --err-line: var(--red-3);
+  --err-text: var(--red-7);
+
+  --info: var(--blue-6);
+  --info-soft: var(--blue-1);
+  --info-line: var(--blue-3);
+  --info-text: var(--blue-7);
+
+  /* ------------------------------------------------------------ domain colour */
+
+  /*
+   * The three tiers. These are semantic in this product, a colour identifies a tier
+   * everywhere it appears, so a logical model is the same green in the tree, the tier
+   * switch, the node header rule and the overview card.
+   */
+  --tier-conceptual: #a4682c;
+  --tier-logical: #167c4a;
+  --tier-physical: #2563eb;
+
+  /*
+   * VS Code's own git decoration colours, so a file's state reads the same here as it
+   * does in the editor people already have open beside this. Taken from the Dark+ and
+   * Light+ `gitDecoration.*` tokens rather than approximated, because "nearly the same
+   * green" is worse than a different colour, it reads as a bug in one of the two.
+   */
+  --git-added: #587c0c;
+  --git-modified: #895503;
+  --git-deleted: #ad0707;
+  --git-untracked: #007100;
+  --git-ignored: #8c8c8c;
+
+  --note-bg: #fffbeb;
+  --note-border: #f0dfa8;
+  --note-text: #7a6320;
+
+  /* ------------------------------------------------------------ elevation */
+
+  --shadow-1: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 10%);
+  --shadow-2: 0 4px 8px -2px rgb(16 24 40 / 10%), 0 2px 4px -2px rgb(16 24 40 / 6%);
+  --shadow-3: 0 12px 24px -6px rgb(16 24 40 / 14%), 0 4px 8px -4px rgb(16 24 40 / 8%);
+  --shadow-4: 0 24px 48px -12px rgb(16 24 40 / 24%), 0 8px 16px -8px rgb(16 24 40 / 12%);
+
+  /* Focus is a ring, never a colour change, colour alone fails contrast checks. */
+  --ring: 0 0 0 3px var(--accent-soft);
+  --ring-err: 0 0 0 3px var(--err-soft);
+
+  /* ------------------------------------------------------------ z-index */
+
+  /*
+   * A scale, so overlays stop fighting.
+   *
+   * The old stylesheet had z-indexes of 4, 10, 20, 30 and 40 assigned ad hoc, which is
+   * why the format toolbar could end up under the shape palette and the canvas hint
+   * could swallow a drop. Every stacking context now names its layer.
+   *
+   * **This scale is the only place a z-index may be written.** A raw number anywhere
+   * else is a bug, because a number cannot be compared against the layers it has to
+   * beat, which is how the format toolbar ended up under the shape palette in the
+   * first place. If a surface needs a layer that is not here, add it here.
+   *
+   * Two bands, and the gap between them is deliberate:
+   *
+   *   1 to 99    in-canvas. Everything in this band shares a stacking context with the
+   *           diagram and is clipped by it, so these compete only with each other.
+   *   400+    app chrome. Menus, scrims, modals, toasts. These escape the canvas and
+   *           must sit above every diagram surface no matter what it is doing.
+   *
+   * Nothing lives in 100 to 399 on purpose: it is the buffer that stops an in-canvas
+   * surface from being nudged up into the chrome band one increment at a time.
+   */
+
+  /* --- in-canvas band ------------------------------------------------------ */
+
+  /** Sibling ordering inside a single component. Never a cross-component layer. */
+  --z-local: 1;
+  /** The empty-model hint. Above the nodes, below every control. */
+  --z-canvas-hint: 4;
+  /** Persistent canvas chrome that is part of the diagram surface itself. */
+  --z-canvas-ui: 10;
+  --z-sticky: 20;
+  /**
+   * Selection-attached toolbars. Above the canvas chrome, because they belong to the
+   * thing the user just clicked and are dismissed the moment they deselect.
+   */
+  --z-canvas-selection: 30;
+  /** A popover opened *from* a selection toolbar, so it must clear its own parent. */
+  --z-canvas-popover: 40;
+
+  /* --- app chrome band ----------------------------------------------------- */
+
+  --z-dropdown: 400;
+  /**
+   * The context menu, above dropdowns because right-click works while one is open,
+   * and below the scrim because a modal must bury it rather than compete with it.
+   */
+  --z-contextmenu: 450;
+  --z-scrim: 500;
+  --z-modal: 510;
+  --z-palette: 600;
+  --z-toast: 700;
+  --z-tooltip: 800;
+
+  /* ------------------------------------------------------------ motion */
+
+  /*
+   * Short and unfussy. This is a dense working tool: an animation that draws attention
+   * to itself is an animation that gets in the way on the hundredth repetition.
+   */
+  --dur-instant: 60ms;
+  --dur-fast: 120ms;
+  --dur-med: 200ms;
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ------------------------------------------------------------ layout */
+
+  --topbar-h: 48px;
+  --statusbar-h: 28px;
+  --sidebar-w: 248px;
+  --sidebar-w-collapsed: 48px;
+  --page-max: 1200px;
+
+  --canvas-grid: var(--n4);
+}
+
+/* ---------------------------------------------------------------- dark */
+
+/*
+ * Dark mode reassigns semantics only.
+ *
+ * Note that `--bg-surface` and `--bg-raised` diverge here where they were identical in
+ * light. Light mode separates layers with borders and shadow; a shadow is nearly
+ * invisible on a dark background, so dark mode has to separate them with lightness
+ * instead. That is the one structural difference between the two themes, and it is
+ * expressed here rather than in thirty component overrides.
+ */
+[data-theme="dark"] {
+  --n0: #12161c;
+  --n1: #171c23;
+  --n2: #1d232b;
+  --n3: #242b35;
+  --n4: #2e3742;
+  --n5: #414c5a;
+  --n6: #7b8797;
+  --n7: #a5b0bd;
+  --n8: #d2d9e1;
+  --n9: #eef1f5;
+  --n10: #ffffff;
+
+  --blue-1: #172436;
+  --blue-2: #1e3350;
+  --blue-3: #2b4a72;
+  --blue-5: #5b9bff;
+  --blue-6: #5b9bff;
+  --blue-7: #7bb0ff;
+
+  --green-1: #14251d;
+  --green-3: #22503a;
+  --green-6: #4cb782;
+  --green-7: #6ecb9c;
+
+  --amber-1: #2a2214;
+  --amber-3: #55431f;
+  --amber-6: #d9a441;
+  --amber-7: #e8bd69;
+
+  --red-1: #2c1817;
+  --red-3: #5c2b28;
+  --red-6: #f0736a;
+  --red-7: #f79289;
+
+  --purple-1: #221a38;
+  --purple-6: #a78bfa;
+
+  --bg-sunken: #0d1116;
+  --bg-canvas: var(--n1);
+  --bg-surface: var(--n0);
+  --bg-raised: var(--n2);
+  --bg-overlay: var(--n2);
+  --bg-inset: #0d1116;
+
+  --bg-hover: var(--n3);
+  --bg-active: var(--n4);
+  --bg-selected: var(--blue-1);
+  --bg-disabled: var(--n2);
+  --bg-scrim: rgb(0 0 0 / 62%);
+
+  --text-on-accent: #0b1220;
+  --text-on-solid: var(--n9);
+  --accent-on: #0b1220;
+  --accent-text: var(--blue-6);
+
+  --border-subtle: var(--n3);
+  --border: var(--n4);
+  --border-strong: var(--n5);
+
+  /* VS Code Dark+ `gitDecoration.*`. */
+  --git-added: #81b88b;
+  --git-modified: #e2c08d;
+  --git-deleted: #c74e39;
+  --git-untracked: #73c991;
+  --git-ignored: #8c8c8c;
+
+  --note-bg: #2a2416;
+  --note-border: #4a4126;
+  --note-text: #e0cd93;
+
+  --tier-conceptual: #d0a05f;
+  --tier-logical: #4cb782;
+  --tier-physical: #5b9bff;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-2: 0 4px 10px -2px rgb(0 0 0 / 50%);
+  --shadow-3: 0 14px 28px -8px rgb(0 0 0 / 60%);
+  --shadow-4: 0 28px 56px -12px rgb(0 0 0 / 70%);
+}
+
+/*
+ * Respect the OS preference when the user has expressed none.
+ *
+ * `data-theme` is always set by the app on first paint, so this only covers the flash
+ * before hydration, but that flash is the difference between "considered" and "cheap"
+ * for anyone running a dark desktop.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+  }
+}

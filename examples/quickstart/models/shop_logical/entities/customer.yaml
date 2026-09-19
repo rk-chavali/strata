@@ -1,0 +1,35 @@
+id: ent_customer
+kind: entity
+name: Customer
+model: shop_logical
+description: A party that holds an account, whether or not they have ordered yet.
+subjectArea: shop_concept:Sales
+entityType: entity
+attributes:
+  - id: att_cust_id
+    name: Customer Identifier
+    domain: customer_id
+    required: true
+    inherited: false
+  - id: att_cust_name
+    name: Customer Name
+    logicalType: string
+    required: true
+    inherited: false
+  - id: att_cust_email
+    name: Email Address
+    domain: email_address
+    required: false
+    inherited: false
+  - id: att_cust_created
+    name: Created At
+    logicalType: timestamp
+    required: true
+    inherited: false
+primaryKey:
+  - Customer Identifier
+alternateKeys:
+  - name: ak_customer_email
+    attributes:
+      - Email Address
+conceptRef: shop_concept:Customer

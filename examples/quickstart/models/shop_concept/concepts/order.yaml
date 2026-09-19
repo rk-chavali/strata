@@ -1,0 +1,7 @@
+id: cpt_order
+kind: concept
+name: Order
+model: shop_concept
+definition: One request to buy, priced and confirmed at a moment in time.
+subjectArea: Sales
+businessKey: Identified by the order number shown on the confirmation email.

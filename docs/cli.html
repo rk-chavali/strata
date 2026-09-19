@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Strata CLI reference: commands and the CI gate</title>
+<meta name="description" content="The strata commands, exit codes, and how to wire strata check into your pipeline so an invalid model cannot merge.">
+<link rel="canonical" href="https://strata-docs.chavali-r.workers.dev/cli.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Strata">
+<meta property="og:title" content="Strata CLI reference: commands and the CI gate">
+<meta property="og:description" content="The strata commands, exit codes, and how to wire strata check into your pipeline so an invalid model cannot merge.">
+<meta property="og:url" content="https://strata-docs.chavali-r.workers.dev/cli.html">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html"><svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6" width="17" height="5" rx="2.5"/><rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/><rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/></svg>Strata <span>docs</span></a>
+  <nav>
+    <a href="quickstart.html">Get started</a>
+    <a href="self-hosting.html">Self-hosting</a>
+    <a href="configuration.html">Config</a>
+    <a href="security.html">Security</a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <h3>Start here</h3>
+    <a href="docs.html">Introduction</a>
+    <a href="quickstart.html">Get started</a>
+    <a href="concepts.html">How the model works</a>
+    <h3>Self-hosting</h3>
+    <a href="self-hosting.html">Run it yourself</a>
+    <a href="deploy-cloud.html">Hosting options</a>
+    <a href="configuration.html">Configuration reference</a>
+
+    <h3>Operating it</h3>
+    <a href="security.html">Security</a>
+    <a href="cli.html" aria-current="page">CLI reference</a>
+
+    <h3>On this page</h3>
+    <a href="#gate">The CI gate</a>
+    <a href="#commands">Commands</a>
+    <a href="#layout">Changing the file layout</a>
+    <a href="#generate">Generating output</a>
+    <a href="#mcp">Serving the model to an agent</a>
+    <a href="#hash">Generating a password hash</a>
+  </aside>
+
+  <main>
+    <p class="eyebrow">Reference</p>
+    <h1>The command line</h1>
+    <p class="lede">
+      The CLI exists mainly for one job: being the gate in your pipeline. Everything else it does is
+      useful, but this is the part that turns Strata from a drawing tool into something that actually
+      holds a standard.
+    </p>
+
+    <h2 id="gate">The CI gate</h2>
+
+    <pre><code>strata check</code></pre>
+
+    <p>
+      Validates structure and referential integrity, then lints names against your standards.
+      Returns a non-zero exit code if anything fails, which is what makes a pipeline stop.
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Exit code</th><th>Means</th></tr></thead>
+        <tbody>
+          <tr><td><code>0</code></td><td>Clean.</td></tr>
+          <tr><td><code>1</code></td><td>Findings. The pull request should not merge.</td></tr>
+          <tr><td><code>2</code></td><td>You used the command wrong. A bad flag, a missing workspace.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>In GitHub Actions:</p>
+
+    <p class="filename">.github/workflows/strata-check.yml</p>
+    <pre><code>name: strata check
+
+on: [pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx @strata/cli check --format github</code></pre>
+
+    <p>
+      <code>--format github</code> emits annotations, so findings appear on the changed lines of
+      the pull request instead of in a log nobody opens.
+    </p>
+
+    <div class="note">
+      <b>Then require it</b>
+      <p>
+        Adding the job is half the work. Go to branch protection on <code>main</code> and make this
+        check required. Without that, the job runs, goes red, and the pull request merges anyway.
+      </p>
+    </div>
+
+    <h2 id="commands">Commands</h2>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>strata init [dir]</code></td>
+            <td>Create a model repository. Writes <code>strata.config.yaml</code> and a
+            <code>.gitattributes</code>.</td>
+          </tr>
+          <tr>
+            <td><code>strata check</code></td>
+            <td>Validate and lint. The recommended CI gate.</td>
+          </tr>
+          <tr>
+            <td><code>strata validate</code></td>
+            <td>Structure and referential integrity only. No naming rules.</td>
+          </tr>
+          <tr>
+            <td><code>strata lint</code></td>
+            <td>Naming standards only.</td>
+          </tr>
+          <tr>
+            <td><code>strata fmt</code></td>
+            <td>Rewrite every file in canonical form. Add <code>--check</code> to report instead of
+            writing.</td>
+          </tr>
+          <tr>
+            <td><code>strata reorganize</code></td>
+            <td>Move every file to a different layout.</td>
+          </tr>
+          <tr>
+            <td><code>strata generate ddl</code></td>
+            <td>Emit <code>CREATE TABLE</code> and policy tag DDL.</td>
+          </tr>
+          <tr>
+            <td><code>strata generate dataform</code></td>
+            <td>Emit Dataform SQLX from the mappings.</td>
+          </tr>
+          <tr>
+            <td><code>strata generate all</code></td>
+            <td>Both of the above.</td>
+          </tr>
+          <tr>
+            <td><code>strata info</code></td>
+            <td>Summarise the workspace. Useful as a first check that Strata can read it at all.</td>
+          </tr>
+          <tr>
+            <td><code>strata mcp</code></td>
+            <td>Serve the model to an AI agent. Read only, over stdio.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Options that work everywhere</h3>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Option</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>--cwd &lt;path&gt;</code></td><td>Run as if you were in this directory.</td></tr>
+          <tr><td><code>--format &lt;fmt&gt;</code></td><td><code>pretty</code>, <code>json</code> or <code>github</code>.</td></tr>
+          <tr><td><code>--strict</code></td><td>Treat warnings as errors.</td></tr>
+          <tr><td><code>--version</code></td><td>Print the version.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Use <code>--format json</code> when you want to do something with the findings yourself, such
+      as posting a summary somewhere or counting them over time.
+    </p>
+
+    <h2 id="layout">Changing the file layout</h2>
+
+    <p>
+      Where a file sits carries no meaning in strata. Every object declares its own kind, id and owning
+      model inside the file, and the loader reads content rather than inferring from paths. So you
+      can reorganise whenever you like and nothing breaks.
+    </p>
+
+    <pre><code>strata reorganize --preset by-layer --dry-run</code></pre>
+
+    <p>Always look at the dry run first. Then drop the flag to actually move the files.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Preset</th><th>Groups files by</th></tr></thead>
+        <tbody>
+          <tr><td><code>flat</code></td><td>Nothing. Everything in one folder.</td></tr>
+          <tr><td><code>by-kind</code></td><td>Object kind: tables, entities, relationships.</td></tr>
+          <tr><td><code>by-model</code></td><td>Which model owns it.</td></tr>
+          <tr><td><code>by-model-and-kind</code></td><td>Both. This is the default.</td></tr>
+          <tr><td><code>by-subject-area</code></td><td>Subject area, such as Sales or Finance.</td></tr>
+          <tr><td><code>by-layer</code></td><td>Warehouse layer: raw, staging, mart.</td></tr>
+          <tr><td><code>single-file-per-model</code></td><td>One file per model, everything inside it.</td></tr>
+          <tr><td><code>custom</code></td><td>Your own template, such as <code>models/{model}/{layer}/{name}.yaml</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      A test asserts that switching between any two presets leaves the semantic content byte for
+      byte identical. Moving files is genuinely just moving files.
+    </p>
+
+    <h2 id="generate">Generating output</h2>
+
+    <pre><code>strata generate ddl --out DDL --codeowners</code></pre>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Option</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>--out &lt;folder&gt;</code></td><td>Where to write. Defaults to <code>DDL</code>.</td></tr>
+          <tr><td><code>--model &lt;name&gt;</code></td><td>One model only. Defaults to every physical model.</td></tr>
+          <tr><td><code>--template &lt;path&gt;</code></td><td>Path template, such as <code>{dataset}/{name}.sql</code>.</td></tr>
+          <tr><td><code>--or-replace</code></td><td><code>CREATE OR REPLACE</code> instead of <code>CREATE IF NOT EXISTS</code>.</td></tr>
+          <tr><td><code>--codeowners</code></td><td>Also write a <code>CODEOWNERS</code> file from model ownership.</td></tr>
+          <tr><td><code>--dry-run</code></td><td>Show what would be written.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Output is reproducible. Running it twice on an unchanged model produces byte identical files,
+      so a generated folder committed to the repository does not churn.
+    </p>
+
+    <h2 id="mcp">Serving the model to an agent</h2>
+
+    <pre><code>strata mcp --cwd /path/to/your/models</code></pre>
+
+    <p>
+      Starts an MCP server over stdio, so an AI agent can query the model directly. An agent asking
+      "what feeds <code>dim_customer.email</code>" gets the answer the lineage panel computes,
+      because it is literally the same function.
+    </p>
+
+    <p>To wire it into Claude Code or another MCP client:</p>
+
+    <pre><code>{
+  "mcpServers": {
+    "strata": {
+      "command": "npx",
+      "args": ["@strata/cli", "mcp", "--cwd", "/path/to/your/models"]
+    }
+  }
+}</code></pre>
+
+    <div class="note">
+      <b>Read only, structurally</b>
+      <p>
+        There is no write tool, no edit path, and nothing imported that could perform one. The whole
+        server depends on the query layer and the loader, neither of which can change a workspace.
+      </p>
+      <p>
+        That is deliberate. An agent that wants to propose a change should do it the way a person
+        does, as a branch and a pull request somebody reviews, not by writing YAML behind everyone's
+        back.
+      </p>
+    </div>
+
+    <h2 id="hash">Generating a password hash</h2>
+
+    <p>
+      Not part of the CLI, because it belongs to the server. Run it from the image:
+    </p>
+
+    <pre><code>docker run --rm -it ghcr.io/rk-chavali/strata \
+  node apps/server/dist/hash-password.js</code></pre>
+
+    <p>Or from a source checkout:</p>
+
+    <pre><code>node apps/server/dist/hash-password.js</code></pre>
+
+    <p>
+      It asks for a password without echoing it, then prints the hash on stdout and the instructions
+      on stderr. So you can pipe the hash somewhere clean:
+    </p>
+
+    <pre><code>node apps/server/dist/hash-password.js > hash.txt</code></pre>
+
+    <p>
+      The password is read from stdin rather than taken as an argument, because an argument lands in
+      your shell history and in the process list where any other user on the machine can read it.
+    </p>
+
+    <div class="nextprev">
+      <a href="security.html">
+        <small>Previous</small>
+        <strong>Security</strong>
+      </a>
+      <a href="concepts.html">
+        <small>Next</small>
+        <strong>How the model works</strong>
+      </a>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

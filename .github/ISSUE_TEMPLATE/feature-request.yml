@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose something Strata should do that it does not do today.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        CONTRIBUTING.md has a section called **Things this project deliberately does not do**.
+        Please read it first. Those are decisions rather than gaps, and a request to change one
+        is welcome, but it is a different conversation and worth naming as such.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues and did not find this.
+          required: true
+        - label: I read the "deliberately does not do" list in CONTRIBUTING.md.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that you cannot do now? Describe the situation, not the feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: Optional. A rough shape is fine.
+
+  # Asked because the answer is often "nothing, I did not know that existed", and that is a
+  # docs bug rather than a missing feature. Worth finding out before anyone writes code.
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do today instead
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Would you be willing to implement this?
+      options:
+        - label: Yes, if the approach is agreed first.

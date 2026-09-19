@@ -1,0 +1,19 @@
+id: rel_tbl_order_customer
+kind: relationship
+name: fct_order_dim_customer
+model: shop_warehouse
+tier: physical
+parent:
+  attributes:
+    - customer_id
+  cardinality: exactly-one
+  ref: dim_customer
+  verbPhrase: is referenced by
+child:
+  attributes:
+    - customer_id
+  cardinality: zero-or-more
+  ref: fct_order
+  verbPhrase: references
+assert: false
+identifying: false

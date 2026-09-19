@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="currentColor">
+  <!--
+    The strata mark on its own, for anywhere it has room to breathe: a README, a slide, a
+    press page. Takes its colour from the surrounding text, so it works in one ink.
+
+    Three beds, each stepped right. Flat layers would read as a generic list; tilted ones read
+    as sedimentary rock, which is what the product is named after, and give the mark direction
+    without resorting to an arrow.
+  -->
+  <rect x="4" y="6" width="17" height="5" rx="2.5"/>
+  <rect x="7.5" y="13.5" width="17" height="5" rx="2.5" opacity=".62"/>
+  <rect x="11" y="21" width="17" height="5" rx="2.5" opacity=".32"/>
+</svg>

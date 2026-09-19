@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/rk-chavali/strata/security/advisories/new
+    about: Report privately. Please do not open a public issue. See SECURITY.md.
+  - name: Question about using Strata
+    url: https://github.com/rk-chavali/strata/discussions
+    about: Usage questions and ideas belong in Discussions, so the issue tracker stays actionable.

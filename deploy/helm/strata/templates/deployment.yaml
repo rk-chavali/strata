@@ -1,0 +1,178 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "strata.fullname" . }}
+  labels:
+    {{- include "strata.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  # `Recreate`, never RollingUpdate.
+  #
+  # The data directory is a ReadWriteOnce volume holding a git working tree. A rolling
+  # update starts the new pod before terminating the old one, so for a few seconds two
+  # processes would be committing into the same checkout, and on most storage classes the
+  # new pod simply cannot attach the volume at all, so the rollout wedges instead.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "strata.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "strata.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Roll the pod when the token changes. A mounted secret updates in place, but the
+        # server reads it at startup, so without this a rotated token is ignored until
+        # something else happens to restart the pod.
+        {{- if .Values.github.token }}
+        checksum/github-secret: {{ .Values.github.token | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: strata
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 4000
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "4000"
+
+            # Runtime configuration, all of it from this chart. Anything set here is
+            # reported to the UI as deployment-managed and cannot be edited there.
+            - name: STRATA_WORKSPACE
+              value: {{ .Values.model.path | quote }}
+            - name: STRATA_DATA_DIR
+              value: {{ printf "%s/auth" .Values.persistence.mountPath | quote }}
+            {{- if .Values.model.repo }}
+            - name: STRATA_MODEL_REPO
+              value: {{ .Values.model.repo | quote }}
+            {{- end }}
+            {{- if .Values.model.branch }}
+            - name: STRATA_MODEL_BRANCH
+              value: {{ .Values.model.branch | quote }}
+            {{- end }}
+
+            - name: STRATA_AUTH
+              value: {{ ternary "on" "off" .Values.auth.enabled | quote }}
+            - name: STRATA_COOKIE_SECURE
+              value: {{ .Values.auth.cookieSecure | quote }}
+
+            {{- if include "strata.hasGithubToken" . }}
+            # A path, not the value. See the note in values.yaml on why this is a file.
+            - name: STRATA_GITHUB_TOKEN_FILE
+              value: {{ printf "%s/%s" .Values.github.mountPath .Values.github.existingSecretKey | quote }}
+            {{- end }}
+
+            - name: STRATA_GIT_AUTHOR_NAME
+              value: {{ .Values.git.authorName | quote }}
+            - name: STRATA_GIT_AUTHOR_EMAIL
+              value: {{ .Values.git.authorEmail | quote }}
+            # git reads these natively for the committer identity.
+            - name: GIT_COMMITTER_NAME
+              value: {{ .Values.git.authorName | quote }}
+            - name: GIT_COMMITTER_EMAIL
+              value: {{ .Values.git.authorEmail | quote }}
+
+            # git refuses to touch a repo owned by another uid, which is the normal case
+            # for a mounted volume. Without this every git call fails "dubious ownership".
+            - name: GIT_CONFIG_COUNT
+              value: "1"
+            - name: GIT_CONFIG_KEY_0
+              value: safe.directory
+            - name: GIT_CONFIG_VALUE_0
+              value: {{ .Values.model.path | quote }}
+
+            # HOME is deliberately *not* overridden.
+            #
+            # An earlier version pointed it at the data volume, which was wrong twice: the
+            # directory does not exist, and it discards the `.gitconfig` the image already
+            # writes into /home/strata at build time. The default is correct, /home/strata is
+            # created by `adduser` and owned by the user the container runs as.
+
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- if include "strata.hasGithubToken" . }}
+            - name: github-token
+              mountPath: {{ .Values.github.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+          # `startupProbe` rather than a long liveness delay: the first boot clones the
+          # model repository, which on a large repo over a slow link takes far longer than
+          # any sane liveness threshold. This gives the clone up to two minutes without
+          # weakening liveness afterwards.
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 20
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "strata.pvcName" . }}
+          {{- else }}
+          # No persistence: accounts and the session secret reset on every restart, so
+          # everyone signs out and first-run setup runs again. Fine for a smoke test.
+          emptyDir: {}
+          {{- end }}
+        {{- if include "strata.hasGithubToken" . }}
+        - name: github-token
+          secret:
+            secretName: {{ include "strata.githubSecretName" . }}
+            defaultMode: 0400
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

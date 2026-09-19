@@ -1,0 +1,1479 @@
+/*
+ * The primitives.
+ *
+ * One rule per component, written against semantic tokens only. If a page needs a
+ * button that looks different, the answer is a new *variant here*, not a local override
+ * in a page stylesheet, the moment two places style a button, the two drift.
+ *
+ * Sizing convention across every interactive primitive:
+ *   sm  24px   dense toolbars, table row actions
+ *   md  30px   the default
+ *   lg  36px   primary calls to action, empty-state buttons
+ *
+ * Those three heights are what make a row of mixed controls, a button beside a select
+ * beside an input, line up without anybody nudging margins.
+ */
+
+/* ---------------------------------------------------------------- button */
+
+.btn {
+  display: inline-flex;
+  flex: none;
+  gap: var(--s3);
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 var(--s5);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  transition:
+    background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  color: var(--text-1);
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.btn:active:not(:disabled) {
+  background: var(--bg-active);
+}
+
+.btn:disabled {
+  color: var(--text-disabled);
+  background: var(--bg-disabled);
+  border-color: var(--border-subtle);
+  cursor: not-allowed;
+}
+
+/* Primary: exactly one per view. Two primaries is no primary. */
+.btn--primary {
+  color: var(--accent-on);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn--primary:hover:not(:disabled) {
+  color: var(--accent-on);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn--primary:active:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn--primary:disabled {
+  color: var(--text-disabled);
+  background: var(--bg-disabled);
+  border-color: var(--border-subtle);
+}
+
+/* Ghost: no border until hover. For toolbars, where a grid of outlines is visual noise. */
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: transparent;
+}
+
+.btn--ghost:disabled {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Subtle: a filled but unbordered button. Sits between ghost and default. */
+.btn--subtle {
+  background: var(--bg-sunken);
+  border-color: transparent;
+}
+
+.btn--subtle:hover:not(:disabled) {
+  background: var(--bg-active);
+  border-color: transparent;
+}
+
+/* Danger: destructive and irreversible. Outlined by default, filled on hover, so the
+   colour arrives as you commit rather than shouting from across the page. */
+.btn--danger {
+  color: var(--err-text);
+  border-color: var(--err-line);
+}
+
+.btn--danger:hover:not(:disabled) {
+  color: var(--text-on-accent);
+  background: var(--err);
+  border-color: var(--err);
+}
+
+/* An on/off toolbar button. `aria-pressed` drives it, so state is in the a11y tree too. */
+.btn--on,
+.btn[aria-pressed="true"] {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+
+.btn--sm {
+  height: 24px;
+  padding: 0 var(--s4);
+  font-size: var(--fs-xs);
+  gap: var(--s2);
+}
+
+.btn--lg {
+  height: 36px;
+  padding: 0 var(--s6);
+  font-size: var(--fs-md);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+/* ---------------------------------------------------------------- icon button */
+
+.iconbtn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: var(--text-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.iconbtn:hover:not(:disabled) {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+
+.iconbtn:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.iconbtn--sm {
+  width: 24px;
+  height: 24px;
+}
+
+.iconbtn--lg {
+  width: 36px;
+  height: 36px;
+}
+
+.iconbtn--on {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+.iconbtn--danger:hover:not(:disabled) {
+  color: var(--err);
+  background: var(--err-soft);
+}
+
+/* ---------------------------------------------------------------- input */
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 var(--s4);
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-4);
+}
+
+.input:hover:not(:disabled):not(:focus),
+.textarea:hover:not(:disabled):not(:focus),
+.select:hover:not(:disabled):not(:focus) {
+  border-color: var(--border-strong);
+}
+
+/*
+ * Focus sets the ring here rather than relying on the global `:focus-visible` outline.
+ *
+ * A text field is focused by clicking as often as by tabbing, and unlike a button it
+ * genuinely needs to show where typing will go in both cases.
+ */
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: var(--border-accent);
+  box-shadow: var(--ring);
+  outline: none;
+}
+
+.input:disabled,
+.textarea:disabled,
+.select:disabled {
+  color: var(--text-disabled);
+  background: var(--bg-disabled);
+  cursor: not-allowed;
+}
+
+.input--invalid,
+.textarea--invalid,
+.input[aria-invalid="true"] {
+  border-color: var(--err);
+}
+
+.input--invalid:focus,
+.textarea--invalid:focus,
+.input[aria-invalid="true"]:focus {
+  border-color: var(--err);
+  box-shadow: var(--ring-err);
+}
+
+.input--mono {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+.input--sm {
+  height: 24px;
+  padding: 0 var(--s3);
+  font-size: var(--fs-xs);
+}
+
+.textarea {
+  height: auto;
+  min-height: 72px;
+  padding: var(--s3) var(--s4);
+  line-height: var(--lh-normal);
+  resize: vertical;
+}
+
+/* A native select needs room for its own arrow, and its own arrow needs hiding first. */
+.select {
+  padding-right: var(--s8);
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) 13px,
+    calc(100% - 11px) 13px;
+  background-size:
+    4px 4px,
+    4px 4px;
+  background-repeat: no-repeat;
+  color: var(--text-2);
+}
+
+/* An input with a leading icon. The icon is decoration, so it never takes the click. */
+.inputgroup {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.inputgroup__icon {
+  position: absolute;
+  left: var(--s4);
+  display: grid;
+  place-items: center;
+  color: var(--text-4);
+  pointer-events: none;
+}
+
+.inputgroup .input {
+  padding-left: var(--s9);
+}
+
+/* ---------------------------------------------------------------- field */
+
+/*
+ * Label, control, hint and error as one unit.
+ *
+ * The hint sits *below* the control, not beside the label: read in order, that is
+ * "here is the thing, here is what it does to you". Above the control it competes with
+ * the label for the same glance.
+ */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+.field__label {
+  display: flex;
+  gap: var(--s3);
+  align-items: baseline;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.field__optional {
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-normal);
+}
+
+.field__hint {
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+}
+
+.field__error {
+  display: flex;
+  gap: var(--s2);
+  align-items: flex-start;
+  color: var(--err-text);
+  font-size: var(--fs-xs);
+}
+
+.field--horizontal {
+  flex-direction: row;
+  gap: var(--s5);
+  align-items: center;
+}
+
+.field--horizontal .field__label,
+.field--inline > .field__label {
+  flex: none;
+  width: 160px;
+}
+
+/*
+  `--inline` is `--horizontal` under an older name, still used by the settings dialog and the
+  users pane. Defined here rather than in legacy.css because it modifies `.field`, and a modifier
+  that loads before the thing it modifies loses every property they share.
+
+  Kept as an alias rather than renamed at the call sites: one rule is a smaller change than ten
+  edits, and it cannot leave a stray class behind.
+*/
+.field--inline {
+  flex-direction: row;
+  gap: var(--s5);
+  align-items: center;
+}
+
+/* ---------------------------------------------------------------- checkbox & switch */
+
+.check {
+  display: flex;
+  gap: var(--s4);
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.check input {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.check input:disabled {
+  cursor: not-allowed;
+}
+
+.check__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  min-width: 0;
+}
+
+.check__label {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.check__hint {
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+.check:has(input:disabled) .check__label {
+  color: var(--text-disabled);
+}
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  padding: 0;
+  background: var(--border-strong);
+  border: none;
+  border-radius: var(--r-full);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.switch::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--n0);
+  border-radius: var(--r-full);
+  box-shadow: var(--shadow-1);
+  content: "";
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.switch[aria-checked="true"] {
+  background: var(--accent);
+}
+
+.switch[aria-checked="true"]::after {
+  transform: translateX(14px);
+}
+
+.switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------- segmented */
+
+/*
+ * A small set of mutually exclusive choices, all visible.
+ *
+ * Preferred over a select whenever there are two to four options and the choice is one
+ * the user changes often, a select hides the alternatives behind a click, which for a
+ * frequently-flipped control is one click too many.
+ */
+.segmented {
+  display: inline-flex;
+  flex: none;
+  gap: var(--s1);
+  padding: var(--s1);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+
+.segmented__btn {
+  display: inline-flex;
+  gap: var(--s2);
+  align-items: center;
+  height: 24px;
+  padding: 0 var(--s4);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  border-radius: var(--r-sm);
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.segmented__btn:hover:not(:disabled):not([aria-pressed="true"]) {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+
+.segmented__btn[aria-pressed="true"] {
+  color: var(--accent-text);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-1);
+}
+
+.segmented__btn:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------- badge */
+
+.badge {
+  display: inline-flex;
+  flex: none;
+  gap: var(--s2);
+  align-items: center;
+  height: 18px;
+  padding: 0 var(--s3);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  background: var(--bg-sunken);
+  border-radius: var(--r-sm);
+}
+
+.badge--accent {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+.badge--ok {
+  color: var(--ok-text);
+  background: var(--ok-soft);
+}
+
+.badge--warn {
+  color: var(--warn-text);
+  background: var(--warn-soft);
+}
+
+.badge--err {
+  color: var(--err-text);
+  background: var(--err-soft);
+}
+
+.badge--outline {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.badge--pill {
+  border-radius: var(--r-full);
+}
+
+/* A count badge: circular below two digits, pill above, so it never looks squashed. */
+.count {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--s2);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  background: var(--bg-active);
+  border-radius: var(--r-full);
+}
+
+.count--accent {
+  color: var(--accent-on);
+  background: var(--accent);
+}
+
+.count--err {
+  color: var(--text-on-accent);
+  background: var(--err);
+}
+
+.count--warn {
+  color: var(--text-on-accent);
+  background: var(--warn);
+}
+
+/* Severity label, used in the problems list. Reads as a word, not a colour swatch. */
+.sev {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 16px;
+  padding: 0 var(--s3);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: var(--r-xs);
+}
+
+.sev--error {
+  color: var(--err-text);
+  background: var(--err-soft);
+}
+
+.sev--warning {
+  color: var(--warn-text);
+  background: var(--warn-soft);
+}
+
+.sev--info {
+  color: var(--info-text);
+  background: var(--info-soft);
+}
+
+/* ---------------------------------------------------------------- kbd */
+
+kbd,
+.kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--s3);
+  color: var(--text-3);
+  font-family: var(--font);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* ---------------------------------------------------------------- card */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.card__head {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  padding: var(--s5) var(--s6);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.card__title {
+  color: var(--text-1);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+}
+
+.card__body {
+  padding: var(--s6);
+}
+
+.card__foot {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  padding: var(--s4) var(--s6);
+  background: var(--bg-canvas);
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0 0 var(--r-md) var(--r-md);
+}
+
+/* An interactive card, a whole tile that is one click target. */
+.card--button {
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.card--button:hover {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-2);
+}
+
+/* ---------------------------------------------------------------- callout */
+
+/*
+  Block by default, flex only in the component form.
+
+  `.callout` is used two ways: by the `Callout` component, which renders an icon and a body, and
+  directly as `<div className="callout">` with loose text inside. Making the class itself a flex
+  container laid the second kind out as columns, one per text run and per inline `<span>`, which
+  is how a sentence in the settings dialog ended up with `STRATA_WORKSPACE` in its own column.
+*/
+.callout {
+  display: block;
+  padding: var(--s5);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+
+.callout--icon {
+  display: flex;
+  gap: var(--s4);
+  align-items: flex-start;
+}
+
+.callout__icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--text-4);
+}
+
+.callout__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.callout__title {
+  display: block;
+  margin-bottom: var(--s1);
+  color: var(--text-1);
+  font-weight: var(--fw-semibold);
+}
+
+.callout--info {
+  color: var(--info-text);
+  background: var(--info-soft);
+  border-color: var(--info-line);
+}
+
+.callout--info .callout__icon,
+.callout--info .callout__title {
+  color: var(--info-text);
+}
+
+.callout--ok {
+  color: var(--ok-text);
+  background: var(--ok-soft);
+  border-color: var(--ok-line);
+}
+
+.callout--ok .callout__icon,
+.callout--ok .callout__title {
+  color: var(--ok-text);
+}
+
+.callout--warn {
+  color: var(--warn-text);
+  background: var(--warn-soft);
+  border-color: var(--warn-line);
+}
+
+.callout--warn .callout__icon,
+.callout--warn .callout__title {
+  color: var(--warn-text);
+}
+
+.callout--err {
+  color: var(--err-text);
+  background: var(--err-soft);
+  border-color: var(--err-line);
+}
+
+.callout--err .callout__icon,
+.callout--err .callout__title {
+  color: var(--err-text);
+}
+
+/* ---------------------------------------------------------------- empty state */
+
+/*
+ * What a surface says when it has nothing to show.
+ *
+ * Every empty state carries an action. "No diagrams yet" is a dead end; "No diagrams
+ * yet, [New diagram]" is the same sentence that also does the thing. This is most of
+ * the difference between an app that feels navigable on first run and one that feels
+ * broken.
+ */
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+  align-items: center;
+  justify-content: center;
+  padding: var(--s11) var(--s7);
+  text-align: center;
+}
+
+.empty--inline {
+  padding: var(--s8) var(--s6);
+}
+
+.empty__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--text-4);
+  background: var(--bg-sunken);
+  border-radius: var(--r-full);
+}
+
+.empty__title {
+  color: var(--text-1);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+}
+
+.empty__body {
+  max-width: 46ch;
+  color: var(--text-4);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+}
+
+.empty__actions {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------- tabs */
+
+.tabs {
+  display: flex;
+  gap: var(--s6);
+  align-items: stretch;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * The underline is on the tab itself via a pseudo-element, not a sliding indicator.
+ *
+ * A sliding indicator needs measurement and reflows on font load; an underline per tab
+ * is correct on first paint and cannot desynchronise from the selected tab.
+ */
+.tab {
+  position: relative;
+  display: inline-flex;
+  gap: var(--s3);
+  align-items: center;
+  height: 36px;
+  padding: 0 var(--s1);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.tab:hover:not(:disabled) {
+  color: var(--text-1);
+}
+
+.tab::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: transparent;
+  border-radius: 2px 2px 0 0;
+  content: "";
+}
+
+.tab[aria-selected="true"] {
+  color: var(--text-1);
+}
+
+.tab[aria-selected="true"]::after {
+  background: var(--accent);
+}
+
+.tab:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------- table */
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--fs-sm);
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--s3) var(--s5);
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  background: var(--bg-canvas);
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: var(--s4) var(--s5);
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+.table--fixed {
+  table-layout: fixed;
+}
+
+.table__num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* An action cell: buttons appear on row hover, so a long list is not a wall of controls. */
+.table__actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.table__actions .iconbtn {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+tr:hover .table__actions .iconbtn,
+.table__actions .iconbtn:focus-visible {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------- menu */
+
+.menu {
+  position: absolute;
+  z-index: var(--z-dropdown);
+  min-width: 200px;
+  max-height: min(70vh, 480px);
+  padding: var(--s2);
+  overflow-y: auto;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-3);
+  animation: menu-in var(--dur-fast) var(--ease-out);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+.menu__item {
+  display: flex;
+  gap: var(--s4);
+  align-items: center;
+  width: 100%;
+  padding: var(--s3) var(--s4);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: left;
+  border-radius: var(--r-sm);
+}
+
+.menu__item:hover:not(:disabled),
+.menu__item[data-active="true"] {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+
+.menu__item:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.menu__item--on {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+.menu__item--danger {
+  color: var(--err-text);
+}
+
+.menu__item--danger:hover:not(:disabled) {
+  color: var(--err-text);
+  background: var(--err-soft);
+}
+
+.menu__icon {
+  flex: none;
+  color: var(--text-4);
+}
+
+.menu__item--danger .menu__icon {
+  color: var(--err);
+}
+
+/* Trailing metadata, a shortcut, a count, a path. Never competes with the label. */
+/*
+ * Trailing hint on a menu row: a shortcut, a count, a short explanation.
+ *
+ * **The shrink factor is the point.** This was `flex: none`, which meant the meta refused
+ * to give up any width, and since the label carries `.truncate` (`min-width: 0`), the
+ * label was the only flexible item in the row and collapsed to *nothing* whenever the meta
+ * was long. The row then showed a hint with no indication of what it was a hint for, which
+ * is worse than showing no hint at all.
+ *
+ * `flex: 0 999 auto` makes the meta absorb essentially all the shrinkage before the label
+ * loses a pixel, because flex distributes shrinkage in proportion to these factors. Short
+ * metas are unaffected, nothing shrinks when there is room, so existing menus keep their
+ * shortcut hints exactly as they were.
+ */
+.menu__meta {
+  flex: 0 999 auto;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.menu__label {
+  padding: var(--s3) var(--s4) var(--s2);
+  color: var(--text-4);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.menu__sep {
+  height: 1px;
+  margin: var(--s2) 0;
+  background: var(--border-subtle);
+}
+
+/* ---------------------------------------------------------------- dialog */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-scrim);
+  display: grid;
+  place-items: center;
+  padding: var(--s7);
+  background: var(--bg-scrim);
+  animation: fade-in var(--dur-fast) var(--ease);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.dialog {
+  display: flex;
+  z-index: var(--z-modal);
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: calc(100vh - var(--s12));
+  overflow: hidden;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-4);
+  animation: dialog-in var(--dur-med) var(--ease-out);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+}
+
+.dialog--sm {
+  width: min(400px, 100%);
+}
+
+.dialog--lg {
+  width: min(760px, 100%);
+}
+
+.dialog--xl {
+  width: min(1040px, 100%);
+}
+
+.dialog__head {
+  display: flex;
+  flex: none;
+  gap: var(--s4);
+  align-items: center;
+  padding: var(--s5) var(--s6);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dialog__title {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-1);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+}
+
+.dialog__sub {
+  padding: 0 var(--s6) var(--s5);
+  color: var(--text-4);
+  font-size: var(--fs-sm);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dialog__body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--s6);
+  overflow-y: auto;
+}
+
+.dialog__foot {
+  display: flex;
+  flex: none;
+  gap: var(--s4);
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--s5) var(--s6);
+  background: var(--bg-canvas);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Footer content that belongs on the left, a "learn more" link, a destructive action. */
+.dialog__foot-start {
+  margin-right: auto;
+}
+
+/* ---------------------------------------------------------------- view toggle */
+
+/*
+ * A mode switch, deliberately unlike every other control on the toolbar.
+ *
+ * The toolbar had five segmented groups in a row, identical in size and colour, so the one
+ * that changes what all the others apply to looked like just another option. This is
+ * rounder, smaller, icon-only and it *animates*, four differences, each one saying "this
+ * is not a picker, it is a switch".
+ */
+
+.viewtoggle {
+  position: relative;
+  /*
+   * A two-column grid, not a flex row, and that is what makes the thumb possible.
+   *
+   * `1fr 1fr` inside a shrink-to-fit box resolves both columns to the width of the wider
+   * label, so the two segments are always identical no matter that "Repository" is half
+   * again as long as "Diagram". A flex row would size each segment to its own text, and a
+   * thumb sliding between two differently-sized slots cannot be expressed as one width.
+   */
+  display: inline-grid;
+  grid-template-columns: repeat(2, 1fr);
+  flex: none;
+  padding: 3px;
+  background: var(--bg-surface);
+  border: 1px solid var(--text-2);
+  /* Fully round. The pill shape is most of what separates it from the segmented groups. */
+  border-radius: var(--r-full);
+}
+
+/*
+ * The moving part, and the reason this reads as a switch at all.
+ *
+ * Absolutely positioned and translated rather than re-rendered per state, so the browser
+ * animates a compositor-friendly transform instead of relayouting the row on every click.
+ *
+ * The width arithmetic is exact rather than approximate: the track is the container less
+ * its 3px padding on each side, so half of it is `50% - 3px`, and the second slot begins
+ * exactly one thumb-width along, which is why `translateX(100%)` lands true at any label
+ * length instead of drifting.
+ */
+.viewtoggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  height: calc(100% - 6px);
+  background: var(--text-1);
+  border-radius: var(--r-full);
+  /*
+   * Slightly overshooting easing. A linear slide reads as a panel moving; a touch of
+   * overshoot reads as something snapping into place, which is what a physical switch does.
+   */
+  transition: transform var(--dur-med) cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+.viewtoggle[data-active="1"] .viewtoggle__thumb {
+  transform: translateX(100%);
+}
+
+.viewtoggle__btn {
+  position: relative;
+  z-index: var(--z-local);
+  display: inline-flex;
+  gap: var(--s2);
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 var(--s4);
+  color: var(--text-4);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  /* Small caps with tracking. At this size it reads as a label rather than as body text,
+     which is what stops a two-word control from looking like a sentence. */
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: var(--r-full);
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.viewtoggle__btn:hover { color: var(--text-2); }
+
+/* On the dark thumb, so it inverts rather than taking the accent colour. */
+.viewtoggle__btn--on { color: var(--bg-surface); }
+
+/* Focus lands on the button, but the ring belongs around the whole control. */
+.viewtoggle__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* Honour a reduced-motion preference: the thumb still moves, it just does not animate. */
+@media (prefers-reduced-motion: reduce) {
+  .viewtoggle__thumb { transition: none; }
+}
+
+/* ---------------------------------------------------------------- toast */
+
+.toasts {
+  position: fixed;
+  right: var(--s7);
+  bottom: var(--s7);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  width: min(380px, calc(100vw - var(--s9)));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  gap: var(--s4);
+  align-items: flex-start;
+  padding: var(--s5);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-3);
+  pointer-events: all;
+  animation: toast-in var(--dur-med) var(--ease-out);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+.toast--success {
+  border-left-color: var(--ok);
+}
+
+.toast--error {
+  border-left-color: var(--err);
+}
+
+.toast--info {
+  border-left-color: var(--info);
+}
+
+.toast__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast__title {
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.toast__message {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+/* ---------------------------------------------------------------- tooltip */
+
+.tooltip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  max-width: 260px;
+  padding: var(--s3) var(--s4);
+  color: var(--text-on-solid);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  background: var(--n9);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-3);
+  pointer-events: none;
+}
+
+[data-theme="dark"] .tooltip {
+  color: var(--n9);
+  background: var(--n4);
+  border: 1px solid var(--n5);
+}
+
+.tooltip__key {
+  margin-left: var(--s3);
+  color: var(--n6);
+}
+
+/* ---------------------------------------------------------------- spinner & skeleton */
+
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: var(--r-full);
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner--lg {
+  width: 22px;
+  height: 22px;
+  border-width: 2.5px;
+}
+
+/*
+ * Skeletons rather than a spinner for content that has a known shape.
+ *
+ * A spinner says "wait"; a skeleton says "wait, and here is roughly what is coming",
+ * which stops the layout jumping when it arrives.
+ */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-sunken) 25%,
+    var(--bg-active) 37%,
+    var(--bg-sunken) 63%
+  );
+  background-size: 400% 100%;
+  border-radius: var(--r-sm);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 50%;
+  }
+
+  to {
+    background-position: 0 50%;
+  }
+}
+
+.skeleton--text {
+  height: 12px;
+  margin: var(--s2) 0;
+}
+
+.skeleton--row {
+  height: 30px;
+}
+
+/* ---------------------------------------------------------------- code & diff */
+
+.codeblock {
+  margin: 0;
+  padding: var(--s5);
+  overflow: auto;
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  tab-size: 2;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r);
+}
+
+.diff {
+  margin: 0;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  background: var(--bg-inset);
+}
+
+.diff > div {
+  padding: 0 var(--s5);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff__meta {
+  color: var(--text-4);
+}
+
+.diff__hunk {
+  color: var(--info-text);
+  background: var(--info-soft);
+}
+
+.diff__add {
+  color: var(--ok-text);
+  background: var(--ok-soft);
+}
+
+.diff__del {
+  color: var(--err-text);
+  background: var(--err-soft);
+}
+
+.diff__ctx {
+  color: var(--text-3);
+}
