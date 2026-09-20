@@ -1,6 +1,6 @@
 {
   "name": "@strata/cli",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "description": "strata — the data modelling CLI: validate, lint and reorganise a model repo, in a terminal or in CI",
   "main": "./dist/index.js",

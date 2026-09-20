@@ -11,7 +11,7 @@
 
 image:
   repository: strata
-  tag: "1.0.2" # x-release-please-version
+  tag: "1.0.3" # x-release-please-version
   # kind has no registry. The image is side-loaded with `kind load docker-image`, so the
   # kubelet must be told to use what is already there rather than trying to pull it.
   pullPolicy: IfNotPresent
