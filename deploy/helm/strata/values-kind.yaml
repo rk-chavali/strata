@@ -3,7 +3,7 @@
 #   docker build -t strata:1.0.1 .
 #   kind load docker-image strata:1.0.1 --name <your-cluster>
 #   helm install strata deploy/helm/strata -f deploy/helm/strata/values-kind.yaml \
-#     --set model.repo=https://github.com/rk-chavali/strata-example.git
+#     --set model.repo=https://github.com/your-org/data-models.git
 #   kubectl port-forward svc/strata 8080:80
 #
 # Everything here differs from the production defaults for a reason that only applies
