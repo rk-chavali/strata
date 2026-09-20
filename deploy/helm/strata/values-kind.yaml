@@ -1,7 +1,7 @@
 # Overlay for a local kind cluster.
 #
-#   docker build -t strata:1.0.1 .
-#   kind load docker-image strata:1.0.1 --name <your-cluster>
+#   docker build -t strata:1.0.2 .
+#   kind load docker-image strata:1.0.2 --name <your-cluster>
 #   helm install strata deploy/helm/strata -f deploy/helm/strata/values-kind.yaml \
 #     --set model.repo=https://github.com/your-org/data-models.git
 #   kubectl port-forward svc/strata 8080:80
@@ -11,7 +11,7 @@
 
 image:
   repository: strata
-  tag: "1.0.1"
+  tag: "1.0.2" # x-release-please-version
   # kind has no registry. The image is side-loaded with `kind load docker-image`, so the
   # kubelet must be told to use what is already there rather than trying to pull it.
   pullPolicy: IfNotPresent

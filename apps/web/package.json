@@ -1,6 +1,6 @@
 {
   "name": "@strata/web",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "private": true,
   "description": "Web UI: ERD canvas, model browser and problems panel",

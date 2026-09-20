@@ -1,6 +1,6 @@
 {
   "name": "@strata/storage",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "Git-native storage: workspace config, flexible file layout, stable YAML serialization",
   "main": "./dist/index.js",

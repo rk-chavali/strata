@@ -63,9 +63,8 @@
           "path": "packages/cli/src/version.ts"
         },
         {
-          "type": "yaml",
-          "path": "deploy/helm/strata/values-kind.yaml",
-          "jsonpath": "$.image.tag"
+          "type": "generic",
+          "path": "deploy/helm/strata/values-kind.yaml"
         }
       ]
     }
