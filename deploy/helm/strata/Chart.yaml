@@ -2,8 +2,8 @@ apiVersion: v2
 name: strata
 description: Git-native data modelling for BigQuery, self-hosted in your own cluster
 type: application
-version: 1.0.2
-appVersion: 1.0.2
+version: 1.0.3
+appVersion: 1.0.3
 keywords:
   - data-modelling
   - erd

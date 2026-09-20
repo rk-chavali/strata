@@ -19,6 +19,18 @@ Semantic versioning, and these are the surfaces it covers:
 Generated output is deliberately not covered. Better DDL for the same model is a patch, and
 pinning a version to freeze SQL formatting is not a use we support.
 
+## [1.0.3](https://github.com/rk-chavali/strata/compare/v1.0.2...v1.0.3) (2026-09-20)
+
+
+### Bug fixes
+
+* **deploy:** stop release-please stripping the comments out of values-kind ([3460ac3](https://github.com/rk-chavali/strata/commit/3460ac39b8d6c3d4f1da78070126ff24ec17c46a))
+
+
+### Documentation
+
+* **deploy:** point the kind quickstart at a placeholder, not a repo that does not exist ([c18a443](https://github.com/rk-chavali/strata/commit/c18a4438017dee5d0644512b55d45ce93d768a5e))
+
 ## [1.0.2](https://github.com/rk-chavali/strata/compare/v1.0.1...v1.0.2) (2026-09-19)
 
 

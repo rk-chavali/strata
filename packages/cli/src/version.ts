@@ -11,4 +11,4 @@
  * next time a release goes out. That matters more than it sounds: the bug report template
  * asks people to paste this number, and triage starts from it.
  */
-export const VERSION = "1.0.2"; // x-release-please-version
+export const VERSION = "1.0.3"; // x-release-please-version
