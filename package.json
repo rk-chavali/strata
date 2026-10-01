@@ -22,7 +22,7 @@
     "oxlint": "^0.15",
     "rimraf": "^6.0.1",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
+    "typescript": "^7.0.2",
     "vitest": "^3.2.7"
   },
   "packageManager": "pnpm@9.15.0",
