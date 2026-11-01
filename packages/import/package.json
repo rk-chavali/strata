@@ -21,6 +21,6 @@
   },
   "dependencies": {
     "@strata/metamodel": "workspace:*",
-    "fast-xml-parser": "^5.11.1"
+    "fast-xml-parser": "^5.11.2"
   }
 }
